@@ -1,3 +1,6 @@
 DataRelease
 *.pdf
 *.png
+.venv/
+*.dat
+*.cov
