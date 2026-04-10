@@ -22,12 +22,11 @@ import requests
 import os
 
 # ── Scegli il modello qui ──────────────────────
-MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
+MODEL = "LCDM_noM"   # oppure "w0CDM" oppure "w0waCDM"
 # ──────────────────────────────────────────────
 
 MODELS = {
     "LCDM": {
-        "name_plot" : "LCDM",
         "params":     ["H0", "Omega_m", "M"],
         "fixed":      {"w0": -1.0, "wa": 0.0},
         "theta0":     [70.0, 0.30, 0.0],
@@ -38,8 +37,17 @@ MODELS = {
             "M": (-1, 1)
         }
     },
+    "LCDM_noM": {
+        "params":     ["H0", "Omega_m"],        # M rimosso
+        "fixed":      {"w0": -1.0, "wa": 0.0},
+        "theta0":     [70.0, 0.30],             # M rimosso
+        "step_sizes": [0.2, 0.004],             # M rimosso
+        "prior_bounds": {
+            "H0":     (50, 90),
+            "Omega_m":(0.1, 0.6)                # M rimosso
+        }
+    },
     "w0CDM": {
-        "name_plot" : "w0CDM",
         "params":     ["H0", "Omega_m", "w0", "M"],
         "fixed":      {"wa": 0.0},
         "theta0":     [70.0, 0.30, -1.0, 0.0],
@@ -52,7 +60,6 @@ MODELS = {
         }
     },
     "w0waCDM": {
-        "name_plot" : "w0waCDM",
         "params":     ["H0", "Omega_m", "w0", "wa", "M"],
         "fixed":      {},
         "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
@@ -167,61 +174,70 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
 # ─────────────────────────────────────────────
 
 def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
-    """
-    ln L(theta) = -1/2 * Delta_mu^T C^{-1} Delta_mu
-
-    theta = [H0, Omega_m, w0, wa, M, sigma_int]
-
-    M è un offset sulla calibrazione assoluta:
-      mu_model_corrected = mu_model + M
-    sigma_int è lo scatter intrinseco delle SNe Ia:
-      aggiunge sigma_int^2 alla diagonale della covarianza
-      (in questa implementazione semplificata lo ignoriamo,
-       ma è il settimo parametro standard nelle analisi avanzate)
-    """
-    # unpack dinamico
     params = dict(zip(model_cfg["params"], theta))
-    params.update(model_cfg["fixed"]) # aggiungi i parametri fissati
+    params.update(model_cfg["fixed"])
 
     H0, Omega_m = params["H0"], params["Omega_m"]
-    w0, wa, M   = params["w0"], params["wa"], params["M"]
+    w0, wa, M   = params["w0"],  params["wa"], params["M"]
 
-    # Controllo sui parametri fisici (evita chiamate inutili)
     if Omega_m <= 0 or Omega_m >= 1:
         return -np.inf
     if H0 <= 0:
         return -np.inf
 
     mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+    delta = mu_obs - mu_th  # niente M qui
     mu_th += M  # offset di calibrazione assoluta
+    
 
-    delta = mu_obs - mu_th
+    # # Marginalizzazione analitica su M (Goliath et al. 2001)
+    # A = delta @ cov_inv @ delta
+    # B = np.sum(cov_inv @ delta)   # 1^T C^{-1} delta
+    # C = np.sum(cov_inv)           # 1^T C^{-1} 1
+    
+    # return -0.5 * (A - B**2 / C)
     return -0.5 * delta @ cov_inv @ delta
+    
+    
+    
 
 
 # ─────────────────────────────────────────────
 # 4. PRIOR
 # ─────────────────────────────────────────────
 
-def log_prior(theta, model_cfg):
-    """
-    Prior piatte (uninformative) entro range fisicamente ragionevoli.
-    Si possono sostituire con prior gaussiane se si hanno vincoli esterni.
+# def log_prior(theta, model_cfg):
+#     """
+#     Prior piatte (uninformative) entro range fisicamente ragionevoli.
+#     Si possono sostituire con prior gaussiane se si hanno vincoli esterni.
 
-    H0        in [50, 90]       km/s/Mpc
-    Omega_m   in [0.1, 0.6]
-    w0        in [-2, 0]        (w0 = -1 è LCDM)
-    wa        in [-3, 3]
-    M         in [-1, 1]        offset di calibrazione
-    """
+#     H0        in [50, 90]       km/s/Mpc
+#     Omega_m   in [0.1, 0.6]
+#     w0        in [-2, 0]        (w0 = -1 è LCDM)
+#     wa        in [-3, 3]
+#     M         in [-1, 1]        offset di calibrazione
+#     """
+#     params = dict(zip(model_cfg["params"], theta))
+#     bounds = model_cfg["prior_bounds"]
+#     for name, value in params.items():
+#         lo, hi = bounds[name]
+#         if not (lo < value < hi):
+#             return -np.inf
+#     return 0.0
+
+def log_prior(theta, model_cfg):
     params = dict(zip(model_cfg["params"], theta))
     bounds = model_cfg["prior_bounds"]
+
     for name, value in params.items():
         lo, hi = bounds[name]
         if not (lo < value < hi):
             return -np.inf
-    return 0.0
 
+    # Prior gaussiano su H0 da Planck 2018
+    H0 = params["H0"]
+    H0_mean, H0_std = 67.4, 1.0
+    return -0.5 * ((H0 - H0_mean) / H0_std)**2
 
 # ─────────────────────────────────────────────
 # 4. FAKE-POSTERIOR
@@ -370,7 +386,7 @@ def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig("plot_Mdeg/trace_plots.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
 
@@ -390,7 +406,7 @@ def plot_corner(chain_burned, model_cfg):
                             quantiles=[0.16, 0.5, 0.84],
                             show_titles=True, title_kwargs={"fontsize": 10})
         fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig(f"plot_pantheon/corner_plot_{model_cfg["name_plot"]}.png", dpi=150)
+        plt.savefig("plot_Mdeg/corner_plot.png", dpi=150)
         plt.show()
         print("Salvato: corner_plot.png")
         
@@ -416,7 +432,7 @@ def _plot_marginals(chain_burned, model_cfg):
     axes[0].legend(fontsize=8)
     fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/marginals_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig("plot_Mdeg/marginals.png", dpi=150)
     plt.show()
 
 
@@ -431,7 +447,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
         params = dict(zip(param_names, theta))
         params.update(fixed)
         return (params["H0"], params["Omega_m"],
-                params["w0"], params["wa"], params["M"])
+                params["w0"], params["wa"], params.get("M", 0.0))
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 7),
                                     gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
@@ -466,7 +482,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig("plot_Mdeg/hubble_diagram.png", dpi=150)
     plt.show()
 
 # ─────────────────────────────────────────────
@@ -481,8 +497,7 @@ if __name__ == "__main__":
 
     # 2. Punto di partenza della catena
     # [H0,   Omega_m, w0,   wa,  M  ]
-    # theta0 = [70.0,  0.30,   -1. 0, 0.0, 0.0]
-    cfg = MODELS["LCDM"]
+    cfg = MODELS["LCDM_noM"]
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC

@@ -24,49 +24,40 @@ import os
 # ── Scegli il modello qui ──────────────────────
 MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
 # ──────────────────────────────────────────────
-
 MODELS = {
-    "LCDM": {
-        "name_plot" : "LCDM",
-        "params":     ["H0", "Omega_m", "M"],
-        "fixed":      {"w0": -1.0, "wa": 0.0},
-        "theta0":     [70.0, 0.30, 0.0],
-        "step_sizes": [0.4, 0.008, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "M": (-1, 1)
-        }
+    # Riferimento: solo SNe, M marginalizzata, no prior su H0
+    # → H0 non vincolato, Omega_m ok
+    "LCDM_ref": {
+        "params":       ["H0", "Omega_m"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [70.0, 0.30],
+        "step_sizes":   [0.5, 0.008],
+        "prior_bounds": {"H0": (50, 90), "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {}
     },
-    "w0CDM": {
-        "name_plot" : "w0CDM",
-        "params":     ["H0", "Omega_m", "w0", "M"],
-        "fixed":      {"wa": 0.0},
-        "theta0":     [70.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "M": (-1, 1)
-        }
-    },
-    "w0waCDM": {
-        "name_plot" : "w0waCDM",
-        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
-        "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3),
-            "M": (-1, 1)
-        }
-    }
-}
 
+    # Caso 1: solo SNe, M libero, prior gaussiana su H0
+    # → H0 ancorato da prior, M assorbe calibrazione
+    "LCDM_Mfree_priorH0": {
+        "params":       ["H0", "Omega_m", "M"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [67.4, 0.30, 0.0],
+        "step_sizes":   [0.3, 0.008, 0.008],
+        "prior_bounds": {"H0": (50, 90), "Omega_m": (0.1, 0.6), "M": (-1, 1)},
+        "prior_gauss":  {"H0": (67.4, 0.5)}   # Planck 2018
+    },
+
+    # Caso 2: SNe + BAO, M marginalizzata, no prior su H0
+    # → H0 vincolato dai dati, risultato più pulito
+    "LCDM_BAO": {
+        "params":       ["H0", "Omega_m"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [70.0, 0.30],
+        "step_sizes":   [0.4, 0.008],
+        "prior_bounds": {"H0": (50, 90), "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {}
+    },
+}
 # ─────────────────────────────────────────────
 # 1. DOWNLOAD E CARICAMENTO DEL DATASET
 # ─────────────────────────────────────────────
@@ -216,11 +207,20 @@ def log_prior(theta, model_cfg):
     """
     params = dict(zip(model_cfg["params"], theta))
     bounds = model_cfg["prior_bounds"]
+
+    # Prior piatti
     for name, value in params.items():
         lo, hi = bounds[name]
         if not (lo < value < hi):
             return -np.inf
-    return 0.0
+
+    # Prior gaussiani (opzionali)
+    lp = 0.0
+    for name, (mean, std) in model_cfg.get("prior_gauss", {}).items():
+        if name in params:
+            lp += -0.5 * ((params[name] - mean) / std)**2
+
+    return lp
 
 
 # ─────────────────────────────────────────────

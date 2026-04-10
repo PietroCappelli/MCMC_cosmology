@@ -119,6 +119,16 @@ def load_data(data_path="Pantheon+SH0ES.dat", cov_path="Pantheon+SH0ES_STAT+SYS.
 
     return z, mu_obs, cov_inv
 
+BAO_DATA = [
+    # z      DM/rd   sDM    DH/rd   sDH    rho
+    (0.295,  7.93,   0.15,  20.08,  0.60,  -0.39),  # BGS
+    (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
+    (0.706,  16.85,  0.32,  20.08,  0.60,  -0.35),  # LRG2
+    (0.930,  21.71,  0.28,  17.88,  0.35,  -0.38),  # LRG3+ELG1
+    (1.317,  27.79,  0.69,  13.82,  0.42,  -0.47),  # ELG2
+    (1.491,  30.21,  0.79,  12.90,  0.40,  -0.43),  # QSO
+    (2.330,  39.71,  0.94,   8.52,  0.17,  -0.45),  # Lya
+]
 
 # ─────────────────────────────────────────────
 # 2. MODELLO COSMOLOGICO
@@ -161,12 +171,24 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
         mu[i] = 5 * np.log10(dL) + 25  # converti Mpc -> pc aggiunge 25
     return mu
 
+def comoving_distance(z, H0, Omega_m, w0, wa):
+    """Distanza comovente in Mpc."""
+    def integrand(zp):
+        return 1.0 / E(zp, Omega_m, w0, wa)
+    integral, _ = quad(integrand, 0, z, limit=100)
+    return (c_light / H0) * integral
+
+def DM_over_rd(z, H0, Omega_m, w0, wa, rd=147.09):
+    return comoving_distance(z, H0, Omega_m, w0, wa) / rd
+
+def DH_over_rd(z, H0, Omega_m, w0, wa, rd=147.09):
+    return (c_light / (H0 * E(z, Omega_m, w0, wa))) / rd
 
 # ─────────────────────────────────────────────
 # 3. LIKELIHOOD
 # ─────────────────────────────────────────────
 
-def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
+def log_likelihood_sne(theta, z, mu_obs, cov_inv, model_cfg):
     """
     ln L(theta) = -1/2 * Delta_mu^T C^{-1} Delta_mu
 
@@ -198,6 +220,41 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
     delta = mu_obs - mu_th
     return -0.5 * delta @ cov_inv @ delta
 
+def log_likelihood_bao(theta, model_cfg, bao_data=BAO_DATA):
+    params = dict(zip(model_cfg["params"], theta))
+    params.update(model_cfg["fixed"])
+
+    H0      = params["H0"]
+    Omega_m = params["Omega_m"]
+    w0      = params["w0"]
+    wa      = params["wa"]
+
+    if Omega_m <= 0 or Omega_m >= 1 or H0 <= 0:
+        return -np.inf
+
+    log_l = 0.0
+    for (z, DM_obs, sDM, DH_obs, sDH, rho) in bao_data:
+
+        DM_th = DM_over_rd(z, H0, Omega_m, w0, wa)
+        DH_th = DH_over_rd(z, H0, Omega_m, w0, wa)
+
+        # Residui
+        delta = np.array([DM_obs - DM_th, DH_obs - DH_th])
+
+        # Matrice di covarianza 2x2 per questo punto
+        cov_bao = np.array([
+            [sDM**2,       rho * sDM * sDH],
+            [rho * sDM * sDH, sDH**2      ]
+        ])
+        cov_bao_inv = np.linalg.inv(cov_bao)
+
+        log_l += -0.5 * delta @ cov_bao_inv @ delta
+
+    return log_l
+
+def log_likelihood_combined(theta, z_sne, mu_obs, cov_inv, model_cfg):
+    return (log_likelihood_sne(theta, z_sne, mu_obs, cov_inv, model_cfg) +
+            log_likelihood_bao(theta, model_cfg))
 
 # ─────────────────────────────────────────────
 # 4. PRIOR
@@ -226,15 +283,11 @@ def log_prior(theta, model_cfg):
 # ─────────────────────────────────────────────
 # 4. FAKE-POSTERIOR
 # ─────────────────────────────────────────────
-def log_posterior(theta, z, mu_obs, cov_inv, model_cfg):
-    """
-    Non è una vera e propria posterior ma è per calcolare il rapporto di accettanza della nuova proposal
-    """
+def log_posterior(theta, z_sne, mu_obs, cov_inv, model_cfg):
     lp = log_prior(theta, model_cfg)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(theta, z, mu_obs, cov_inv, model_cfg)
-
+    return lp + log_likelihood_combined(theta, z_sne, mu_obs, cov_inv, model_cfg)
 
 # ─────────────────────────────────────────────
 # 5. METROPOLIS-HASTINGS
@@ -370,7 +423,7 @@ def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"plot_pantheon_BAO/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
 
@@ -390,7 +443,7 @@ def plot_corner(chain_burned, model_cfg):
                             quantiles=[0.16, 0.5, 0.84],
                             show_titles=True, title_kwargs={"fontsize": 10})
         fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig(f"plot_pantheon/corner_plot_{model_cfg["name_plot"]}.png", dpi=150)
+        plt.savefig(f"plot_pantheon_BAO/corner_plot_{model_cfg["name_plot"]}.png", dpi=150)
         plt.show()
         print("Salvato: corner_plot.png")
         
@@ -416,7 +469,7 @@ def _plot_marginals(chain_burned, model_cfg):
     axes[0].legend(fontsize=8)
     fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/marginals_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"plot_pantheon_BAO/marginals_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
 
 
@@ -466,7 +519,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"plot_pantheon_BAO/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
 
 # ─────────────────────────────────────────────
