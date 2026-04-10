@@ -329,6 +329,7 @@ def plot_corner(chain_burned):
         fig.suptitle("Corner plot — PDF marginali", fontsize=13)
         plt.savefig("corner_plot.png", dpi=150)
         plt.show()
+        _plot_marginals(chain_burned)
         print("Salvato: corner_plot.png")
     except ImportError:
         print("Libreria 'corner' non installata. Installa con: pip install corner")

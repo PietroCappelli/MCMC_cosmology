@@ -260,11 +260,10 @@ def run_mcmc(z, mu_obs, cov_inv,
     """
     np.random.seed(seed)
     n_params = len(theta0)
-
-    if step_sizes is None:
-        # Step sizes di default (da tuningare!)
-        # Regola pratica: ~1-2% del range del prior per ogni parametro
-        step_sizes = np.array([0.5, 0.01, 0.05, 0.1, 0.01])
+    
+    theta0     = model_cfg["theta0"]
+    step_sizes = model_cfg["step_sizes"]  # presi dal config, non hardcoded
+    n_params   = len(theta0)              # si adatta automaticamente
 
     chain    = np.zeros((n_steps, n_params))
     log_post = np.zeros(n_steps)
@@ -310,7 +309,7 @@ def run_mcmc(z, mu_obs, cov_inv,
 # 6. ANALISI DELLA CATENA
 # ─────────────────────────────────────────────
 
-def analyze_chain(chain, log_post, burn_in_frac=0.3):
+def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
     """
     Rimuove il burn-in e calcola statistiche.
 
@@ -322,7 +321,10 @@ def analyze_chain(chain, log_post, burn_in_frac=0.3):
     chain_burned = chain[burn_in:]
     print(f"\nBurn-in rimosso: {burn_in} passi. Catena utile: {len(chain_burned)} passi.")
 
-    param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    param_names = model_cfg["params"]
+    
+    
     print("\nRisultati (mediana e intervallo 68%):")
     print("-" * 45)
     results = {}
@@ -341,9 +343,11 @@ def analyze_chain(chain, log_post, burn_in_frac=0.3):
 # 7. PLOT
 # ─────────────────────────────────────────────
 
-def plot_trace(chain, log_post, burn_in_frac=0.3):
+def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     """Trace plots: mostra l'evoluzione di ogni parametro nella catena."""
-    param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    param_names = model_cfg["params"]
+    
     n_steps = len(chain)
     burn_in = int(n_steps * burn_in_frac)
 
@@ -368,7 +372,7 @@ def plot_trace(chain, log_post, burn_in_frac=0.3):
     print("Salvato: trace_plots.png")
 
 
-def plot_corner(chain_burned):
+def plot_corner(chain_burned, model_cfg):
     """
     Corner plot manuale (senza librerie esterne).
     Per un corner plot più bello: pip install corner
@@ -376,7 +380,9 @@ def plot_corner(chain_burned):
     """
     try:
         import corner
-        param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+        # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+        param_names = model_cfg["params"]
+        
         fig = corner.corner(chain_burned, labels=param_names,
                             quantiles=[0.16, 0.5, 0.84],
                             show_titles=True, title_kwargs={"fontsize": 10})
@@ -384,15 +390,19 @@ def plot_corner(chain_burned):
         plt.savefig("corner_plot.png", dpi=150)
         plt.show()
         print("Salvato: corner_plot.png")
+        _plot_marginals(chain_burned)
+        
     except ImportError:
         print("Libreria 'corner' non installata. Installa con: pip install corner")
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
 
-def _plot_marginals(chain_burned):
+def _plot_marginals(chain_burned, model_cfg):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
-    param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+    param_names = model_cfg["params"]
+    
     fig, axes = plt.subplots(1, 5, figsize=(15, 3))
     for i, (ax, name) in enumerate(zip(axes, param_names)):
         ax.hist(chain_burned[:, i], bins=50, color="steelblue", edgecolor="white", lw=0.3)
@@ -406,38 +416,44 @@ def _plot_marginals(chain_burned):
     plt.show()
 
 
-def plot_hubble_diagram(z, mu_obs, chain_burned, n_samples=200):
-    """
-    Diagramma di Hubble: dati vs modello best-fit e banda di incertezza.
-    """
-    z_plot = np.linspace(0.01, 2.3, 300)
+def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
+    
+    z_plot     = np.linspace(0.01, 2.3, 300)
+    param_names = model_cfg["params"]
+    fixed       = model_cfg["fixed"]
+
+    def get_params(theta):
+        """Ricostruisce il dizionario completo params + fixed."""
+        params = dict(zip(param_names, theta))
+        params.update(fixed)
+        return (params["H0"], params["Omega_m"],
+                params["w0"], params["wa"], params["M"])
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 7),
                                     gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
 
-    # Campiona n_samples punti dalla catena per la banda di incertezza
+    # Banda di incertezza
     idx_samples = np.random.choice(len(chain_burned), n_samples, replace=False)
     for idx in idx_samples:
-        H0, Om, w0, wa, M = chain_burned[idx]
-        mu_s = np.array([5 * np.log10(luminosity_distance(z, H0, Om, w0, wa)) + 25 + M
-                         for z in z_plot])
+        H0, Om, w0, wa, M = get_params(chain_burned[idx])
+        mu_s = np.array([5 * np.log10(luminosity_distance(zz, H0, Om, w0, wa)) + 25 + M
+                         for zz in z_plot])
         ax1.plot(z_plot, mu_s, color="steelblue", alpha=0.05, lw=0.8)
 
     # Best fit (mediana)
-    theta_med = np.median(chain_burned, axis=0)
-    H0, Om, w0, wa, M = theta_med
-    mu_bf = np.array([5 * np.log10(luminosity_distance(z, H0, Om, w0, wa)) + 25 + M
-                      for z in z_plot])
-    ax1.plot(z_plot, mu_bf, color="steelblue", lw=2, label=f"best fit")
+    theta_med          = np.median(chain_burned, axis=0)
+    H0, Om, w0, wa, M  = get_params(theta_med)
+    mu_bf = np.array([5 * np.log10(luminosity_distance(zz, H0, Om, w0, wa)) + 25 + M
+                      for zz in z_plot])
+    ax1.plot(z_plot, mu_bf, color="steelblue", lw=2, label="best fit")
 
-    # Dati
     ax1.scatter(z, mu_obs, s=3, color="orange", alpha=0.4, zorder=5, label="Pantheon+")
     ax1.set_ylabel(r"$\mu$ (modulo di distanza)", fontsize=11)
     ax1.legend(fontsize=10)
     ax1.set_title("Diagramma di Hubble", fontsize=12)
 
     # Residui
-    mu_pred = distance_modulus_model(z, H0, Om, w0, wa) + M
+    mu_pred   = distance_modulus_model(z, H0, Om, w0, wa) + M
     residuals = mu_obs - mu_pred
     ax2.scatter(z, residuals, s=3, color="gray", alpha=0.4)
     ax2.axhline(0, color="steelblue", lw=1.5)
@@ -448,8 +464,6 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, n_samples=200):
     plt.tight_layout()
     plt.savefig("hubble_diagram.png", dpi=150)
     plt.show()
-    print("Salvato: hubble_diagram.png")
-
 
 # ─────────────────────────────────────────────
 # MAIN
@@ -478,10 +492,10 @@ if __name__ == "__main__":
     )
 
     # 4. Analisi della catena (rimuove burn-in)
-    chain_burned, results = analyze_chain(chain, log_post, burn_in_frac=0.3)
+    chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
 
     # 5. Plot
-    plot_trace(chain, log_post)
-    plot_corner(chain_burned)
-    plot_hubble_diagram(z, mu_obs, chain_burned)
+    plot_trace(chain, log_post, model_cfg=cfg)
+    plot_corner(chain_burned, model_cfg=cfg)
+    plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg=cfg)
     
