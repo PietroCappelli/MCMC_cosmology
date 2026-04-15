@@ -20,6 +20,8 @@ from scipy.integrate import quad
 import pandas as pd
 import requests
 import os
+import sys
+
 
 # ── Scegli il modello qui ──────────────────────
 MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
@@ -474,7 +476,13 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
 # ─────────────────────────────────────────────
 
 if __name__ == "__main__":
+    
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <folder_name>")
+        sys.exit(1)
 
+    folder_name = sys.argv[1]
+    os.makedirs(folder_name, exist_ok=True)
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
@@ -500,7 +508,7 @@ if __name__ == "__main__":
     chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
 
     # 5. Plot
-    plot_trace(chain, log_post, model_cfg=cfg)
-    plot_corner(chain_burned, model_cfg=cfg)
-    plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg=cfg)
+    plot_trace(chain, log_post,folder_name=folder_name, model_cfg=cfg)
+    plot_corner(chain_burned, folder_name=folder_name, model_cfg=cfg)
+    plot_hubble_diagram(z, mu_obs, chain_burned,folder_name=folder_name, model_cfg=cfg)
     

@@ -404,8 +404,15 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, n_samples=200):
 
 if __name__ == "__main__":
 
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <folder_name>")
+        sys.exit(1)
+
+    folder_name = sys.argv[1]
+    os.makedirs(folder_name, exist_ok=True)
+    
     # 1. Scarica e carica i dati
-    download_pantheon()
+    # download_pantheon()
     z, mu_obs, cov_inv = load_data()
 
     # 2. Punto di partenza della catena
