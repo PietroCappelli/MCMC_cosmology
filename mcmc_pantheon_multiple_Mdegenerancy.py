@@ -19,10 +19,11 @@ import matplotlib.pyplot as plt
 from scipy.integrate import quad
 import pandas as pd
 import requests
+import sys
 import os
 
 # ── Scegli il modello qui ──────────────────────
-MODEL = "LCDM_noM"   # oppure "w0CDM" oppure "w0waCDM"
+MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
 # ──────────────────────────────────────────────
 
 MODELS = {
@@ -125,7 +126,6 @@ def load_data(data_path="Pantheon+SH0ES.dat", cov_path="Pantheon+SH0ES_STAT+SYS.
     cov_inv = np.linalg.inv(cov)
 
     return z, mu_obs, cov_inv
-
 
 # ─────────────────────────────────────────────
 # 2. MODELLO COSMOLOGICO
@@ -386,7 +386,7 @@ def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
     plt.tight_layout()
-    plt.savefig("plot_Mdeg/trace_plots.png", dpi=150)
+    plt.savefig(f"{folder_name}/trace_plots.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
 
@@ -406,7 +406,7 @@ def plot_corner(chain_burned, model_cfg):
                             quantiles=[0.16, 0.5, 0.84],
                             show_titles=True, title_kwargs={"fontsize": 10})
         fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig("plot_Mdeg/corner_plot.png", dpi=150)
+        plt.savefig(f"{folder_name}/corner_plot.png", dpi=150)
         plt.show()
         print("Salvato: corner_plot.png")
         
@@ -482,7 +482,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
-    plt.savefig("plot_Mdeg/hubble_diagram.png", dpi=150)
+    plt.savefig(f"{folder_name}/hubble_diagram.png", dpi=150)
     plt.show()
 
 # ─────────────────────────────────────────────
@@ -491,13 +491,20 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
 
 if __name__ == "__main__":
 
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <folder_name>")
+        sys.exit(1)
+
+    folder_name = sys.argv[1]
+    os.makedirs(folder_name, exist_ok=True)
+    
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
 
     # 2. Punto di partenza della catena
     # [H0,   Omega_m, w0,   wa,  M  ]
-    cfg = MODELS["LCDM_noM"]
+    cfg = MODELS["LCDM"]
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC
@@ -515,7 +522,7 @@ if __name__ == "__main__":
     chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
 
     # 5. Plot
-    plot_trace(chain, log_post, model_cfg=cfg)
-    plot_corner(chain_burned, model_cfg=cfg)
-    plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg=cfg)
+    plot_trace(chain, log_post, folder_name=folder_name, model_cfg=cfg)
+    plot_corner(chain_burned, folder_name=folder_name, model_cfg=cfg)
+    plot_hubble_diagram(z, mu_obs, chain_burned, folder_name=folder_name, model_cfg=cfg)
     

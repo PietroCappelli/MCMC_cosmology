@@ -20,6 +20,7 @@ from scipy.integrate import quad
 import pandas as pd
 import requests
 import os
+import sys
 
 # ── Scegli il modello qui ──────────────────────
 MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
@@ -346,7 +347,7 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
 # 7. PLOT
 # ─────────────────────────────────────────────
 
-def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
+def plot_trace(chain, log_post, model_cfg,folder_name, burn_in_frac=0.3):
     """Trace plots: mostra l'evoluzione di ogni parametro nella catena."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -370,12 +371,12 @@ def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
 
 
-def plot_corner(chain_burned, model_cfg):
+def plot_corner(chain_burned, model_cfg, folder_name):
     """
     Corner plot manuale (senza librerie esterne).
     Per un corner plot più bello: pip install corner
@@ -399,10 +400,10 @@ def plot_corner(chain_burned, model_cfg):
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
-    _plot_marginals(chain_burned, model_cfg)
+    _plot_marginals(chain_burned, model_cfg, folder_name=folder_name)
 
 
-def _plot_marginals(chain_burned, model_cfg):
+def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -416,11 +417,11 @@ def _plot_marginals(chain_burned, model_cfg):
     axes[0].legend(fontsize=8)
     fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/marginals_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/marginals_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
 
 
-def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
+def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_samples=200):
     
     z_plot     = np.linspace(0.01, 2.3, 300)
     param_names = model_cfg["params"]
@@ -466,15 +467,21 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
-    plt.savefig(f"plot_pantheon/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
     plt.show()
 
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
-
+ 
 if __name__ == "__main__":
 
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <folder_name>")
+        sys.exit(1)
+
+    folder_name = sys.argv[1]
+    os.makedirs(folder_name, exist_ok=True)
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
@@ -500,7 +507,7 @@ if __name__ == "__main__":
     chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
 
     # 5. Plot
-    plot_trace(chain, log_post, model_cfg=cfg)
-    plot_corner(chain_burned, model_cfg=cfg)
-    plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg=cfg)
+    plot_trace(chain, log_post, model_cfg=cfg, folder_name=folder_name)
+    plot_corner(chain_burned, model_cfg=cfg, folder_name=folder_name)
+    plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg=cfg, folder_name=folder_name)
     
