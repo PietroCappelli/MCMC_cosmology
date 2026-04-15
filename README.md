@@ -1,4 +1,9 @@
 # MCMC_cosmology
+PAPERS:
+- Pantheon: https://arxiv.org/pdf/2202.04077
+- SH0ES: https://arxiv.org/pdf/2404.03002
+- BAO: https://pantheonplussh0es.github.io/
+
 
 Using the classic MCMC algorithm
 ## First: Only Supernovae Datasets
