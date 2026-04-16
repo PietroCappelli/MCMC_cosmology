@@ -23,10 +23,67 @@ import sys
 import os
 
 # ── Select the model ──────────────────────
-MODEL = "w0waCDM_SNe_BAO_margM"
+MODEL = "LCDM_Mmarg_NoPrior_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
+    "LCDM_Mfree_NoPrior": {
+        "params":     ["H0", "Omega_m", "M"],
+        "fixed":      {"w0": -1.0, "wa": 0.0},
+        "theta0":     [70.0, 0.30, 0.0],
+        "step_sizes": [0.4, 0.008, 0.008],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "M": (-1.0, 1.0)
+        },
+        "prior_gauss":  {},
+        "marginalize_M": False,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarg_NoPrior": {
+        "params":     ["H0", "Omega_m"],
+        "fixed":      {"w0": -1.0, "wa": 0.0},
+        "theta0":     [70.0, 0.30],
+        "step_sizes": [0.4, 0.008],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+        },
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarg_NoPrior_w0": {
+        "params":     ["H0", "Omega_m", "w0"],
+        "fixed":      {"wa": 0.0},
+        "theta0":     [70.0, 0.30, -1.0],
+        "step_sizes": [0.4, 0.008, 0.05],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0)},
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarg_NoPrior_w0wa": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],
+        "fixed":      {},
+        "theta0":     [70.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0),
+            "wa": (-3, 3)},
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 40000
+    },
+
+
+
     "LCDM_priorSH0ES": {
         "params":       ["H0", "Omega_m"],        # M marginalizzata
         "fixed":        {"w0": -1.0, "wa": 0.0},
@@ -46,18 +103,6 @@ MODELS = {
             "Omega_m": (0.1, 0.6),
             "w0": (-2, 0),
             "wa": (-3, 3)},
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
-    },
-    "LCDM_Prior_Mfree": {
-        "params":     ["H0", "Omega_m", "M"],
-        "fixed":      {"w0": -1.0, "wa": 0.0},
-        "theta0":     [70.0, 0.30, 0.0],
-        "step_sizes": [0.4, 0.008, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "M": (-1.0, 1.0)
-        },
         "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
     },
     "LCDM_Prior_Mfree_w0wa": {
@@ -644,18 +689,14 @@ if __name__ == "__main__":
     z, mu_obs, cov_inv = load_data()
 
     # 2. Punto di partenza della catena
-    # [H0,   Omega_m, w0,   wa,  M  ]
     cfg = MODELS[MODEL]
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC
-    # NOTA: per un risultato affidabile usa n_steps >= 50000
-    # Per un test rapido inizia con n_steps=5000
     chain, log_post, acc_rate = run_mcmc(
         z, mu_obs, cov_inv,
         theta0=theta0,
-        n_steps=40000,
-        # step_sizes=[0.4, 0.008, 0.04, 0.08, 0.008],
+        n_steps=cfg["n_steps"], 
         model_cfg=cfg
     )
 

@@ -23,7 +23,7 @@ import sys
 import os
 
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Mfree_Prior_SH0ES"
+MODEL = "LCDM_Mmarginal_Prior_SH0ES_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
@@ -44,6 +44,7 @@ MODELS = {
         "fixed":        {"w0": -1.0, "wa": 0.0},
         "theta0":       [73.0, 0.30],
         "step_sizes":   [0.4, 0.008],
+        # "step_sizes":   [1.0, 0.015],
         "prior_bounds": {"H0": (50, 90), 
                          "Omega_m": (0.1, 0.6)},
         "prior_gauss":  {},
@@ -54,7 +55,8 @@ MODELS = {
         "params":       ["H0", "Omega_m"],
         "fixed":        {"w0": -1.0, "wa": 0.0},
         "theta0":       [73.0, 0.30],
-        "step_sizes":   [0.4, 0.008],
+        # "step_sizes":   [0.4, 0.008],
+        "step_sizes":   [1.0, 0.015],
         "prior_bounds": {"H0": (50, 90), 
                          "Omega_m": (0.1, 0.6)},
         "prior_gauss":  {"H0": (73.04, 1.04)},
@@ -73,7 +75,20 @@ MODELS = {
         "marginalize_M": False,
         "n_steps": 30000
     },
-    
+    "LCDM_Mmarginal_Prior_SH0ES_w0wa": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],
+        "fixed":      {},
+        "theta0":     [73.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0),
+            "wa": (-3, 3)},
+        "prior_gauss":  {"H0": (73.04, 1.04)},
+        "marginalize_M": True,
+        "n_steps": 40000
+    },
     
     "LCDM_priorSH0ES": {
         "params":       ["H0", "Omega_m"],        # M marginalizzata
