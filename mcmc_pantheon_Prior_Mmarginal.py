@@ -22,12 +22,35 @@ import requests
 import sys
 import os
 
-# ── Scegli il modello qui ──────────────────────
-MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
+# ── Select the model ──────────────────────
+MODEL = "LCDM_Prior_Mfree"
 # ──────────────────────────────────────────────
 
 MODELS = {
-    "LCDM": {
+    "LCDM_priorSH0ES": {
+        "params":       ["H0", "Omega_m"],        # M marginalizzata
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30],
+        "step_sizes":   [0.3, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
+        "marginalize_M": True,
+    },
+    "w0waCDM_Prior": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],
+        "fixed":      {},
+        "theta0":     [73.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0),
+            "wa": (-3, 3)},
+        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
+        "marginalize_M": False,
+    },
+    "LCDM_Prior_Mfree": {
         "params":     ["H0", "Omega_m", "M"],
         "fixed":      {"w0": -1.0, "wa": 0.0},
         "theta0":     [70.0, 0.30, 0.0],
@@ -35,32 +58,11 @@ MODELS = {
         "prior_bounds": {
             "H0": (50, 90),
             "Omega_m": (0.1, 0.6),
-            "M": (-1, 1)
-        }
+            "M": (-1.0, 1.0)
+        },
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
     },
-    "LCDM_noM": {
-        "params":     ["H0", "Omega_m"],        # M rimosso
-        "fixed":      {"w0": -1.0, "wa": 0.0},
-        "theta0":     [70.0, 0.30],             # M rimosso
-        "step_sizes": [0.2, 0.004],             # M rimosso
-        "prior_bounds": {
-            "H0":     (50, 90),
-            "Omega_m":(0.1, 0.6)                # M rimosso
-        }
-    },
-    "w0CDM": {
-        "params":     ["H0", "Omega_m", "w0", "M"],
-        "fixed":      {"wa": 0.0},
-        "theta0":     [70.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "M": (-1, 1)
-        }
-    },
-    "w0waCDM": {
+    "LCDM_Prior_Mfree_w0wa": {
         "params":     ["H0", "Omega_m", "w0", "wa", "M"],
         "fixed":      {},
         "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
@@ -70,8 +72,9 @@ MODELS = {
             "Omega_m": (0.1, 0.6),
             "w0": (-2, 0),
             "wa": (-3, 3),
-            "M": (-1, 1)
-        }
+            "M": (-1.0, 1.0)
+        },
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
     }
 }
 
@@ -172,13 +175,16 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
 # ─────────────────────────────────────────────
 # 3. LIKELIHOOD
 # ─────────────────────────────────────────────
-
 def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
+    ### M marginalizzata -> not a free parameter
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
 
-    H0, Omega_m = params["H0"], params["Omega_m"]
-    w0, wa, M   = params["w0"],  params["wa"], params["M"]
+    H0      = params["H0"]
+    Omega_m = params["Omega_m"]
+    w0      = params["w0"]
+    wa      = params["wa"]
+    # M non esiste — né in params né in fixed
 
     if Omega_m <= 0 or Omega_m >= 1:
         return -np.inf
@@ -186,20 +192,39 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
         return -np.inf
 
     mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
-    delta = mu_obs - mu_th  # niente M qui
-    mu_th += M  # offset di calibrazione assoluta
-    
+    delta = mu_obs - mu_th
 
-    # # Marginalizzazione analitica su M (Goliath et al. 2001)
-    # A = delta @ cov_inv @ delta
-    # B = np.sum(cov_inv @ delta)   # 1^T C^{-1} delta
-    # C = np.sum(cov_inv)           # 1^T C^{-1} 1
-    
-    # return -0.5 * (A - B**2 / C)
-    return -0.5 * delta @ cov_inv @ delta
-    
-    
-    
+    A = delta @ cov_inv @ delta
+    B = np.sum(cov_inv @ delta)
+    C = np.sum(cov_inv)
+
+    return -0.5 * (A - B**2 / C)
+
+
+def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
+    ### M marginalizzata -> not a free parameter
+    params = dict(zip(model_cfg["params"], theta))
+    params.update(model_cfg["fixed"])
+
+    H0      = params["H0"]
+    Omega_m = params["Omega_m"]
+    w0      = params["w0"]
+    wa      = params["wa"]
+    M       = params["M"]
+    # M non esiste — né in params né in fixed
+
+    if Omega_m <= 0 or Omega_m >= 1:
+        return -np.inf
+    if H0 <= 0:
+        return -np.inf
+
+    mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+
+    mu_th += M       # M entra nel modello
+    delta = mu_obs - mu_th   # delta calcolato con M inclusa
+
+    return -0.5 * delta @ cov_inv @ delta    
+
 
 
 # ─────────────────────────────────────────────
@@ -224,20 +249,37 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
 #         if not (lo < value < hi):
 #             return -np.inf
 #     return 0.0
+# def log_prior(theta, model_cfg):
+#     params = dict(zip(model_cfg["params"], theta))
+#     bounds = model_cfg["prior_bounds"]
+
+#     for name, value in params.items():
+#         lo, hi = bounds[name]
+#         if not (lo < value < hi):
+#             return -np.inf
+
+#     # Prior gaussiano su H0 da SH0ES
+#     H0 = params["H0"]
+#     H0_mean, H0_std = 67.4, 1.0
+#     return -0.5 * ((H0 - H0_mean) / H0_std)**2
 
 def log_prior(theta, model_cfg):
     params = dict(zip(model_cfg["params"], theta))
     bounds = model_cfg["prior_bounds"]
 
+    # Prior piatti
     for name, value in params.items():
         lo, hi = bounds[name]
         if not (lo < value < hi):
             return -np.inf
 
-    # Prior gaussiano su H0 da Planck 2018
-    H0 = params["H0"]
-    H0_mean, H0_std = 67.4, 1.0
-    return -0.5 * ((H0 - H0_mean) / H0_std)**2
+    # Prior gaussiani — letti dal dizionario
+    lp = 0.0
+    for name, (mean, std) in model_cfg.get("prior_gauss", {}).items():
+        if name in params:
+            lp += -0.5 * ((params[name] - mean) / std)**2
+
+    return lp
 
 # ─────────────────────────────────────────────
 # 4. FAKE-POSTERIOR
@@ -249,7 +291,13 @@ def log_posterior(theta, z, mu_obs, cov_inv, model_cfg):
     lp = log_prior(theta, model_cfg)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(theta, z, mu_obs, cov_inv, model_cfg)
+    
+    if model_cfg.get("marginalize_M", False):  # default False if no key
+        ll = log_likelihood_marginal(theta, mu_obs, cov_inv, model_cfg)
+    else:
+        ll = log_likelihood(theta, mu_obs, cov_inv, model_cfg)
+
+    return lp + ll
 
 
 # ─────────────────────────────────────────────
@@ -362,7 +410,7 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
 # 7. PLOT
 # ─────────────────────────────────────────────
 
-def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
+def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     """Trace plots: mostra l'evoluzione di ogni parametro nella catena."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -391,7 +439,7 @@ def plot_trace(chain, log_post, model_cfg, burn_in_frac=0.3):
     print("Salvato: trace_plots.png")
 
 
-def plot_corner(chain_burned, model_cfg):
+def plot_corner(chain_burned, model_cfg, folder_name):
     """
     Corner plot manuale (senza librerie esterne).
     Per un corner plot più bello: pip install corner
@@ -415,10 +463,10 @@ def plot_corner(chain_burned, model_cfg):
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
-    _plot_marginals(chain_burned, model_cfg)
+    _plot_marginals(chain_burned, model_cfg, folder_name)
 
 
-def _plot_marginals(chain_burned, model_cfg):
+def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -432,11 +480,11 @@ def _plot_marginals(chain_burned, model_cfg):
     axes[0].legend(fontsize=8)
     fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
-    plt.savefig("plot_Mdeg/marginals.png", dpi=150)
+    plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
 
 
-def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, n_samples=200):
+def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_samples=200):
     
     z_plot     = np.linspace(0.01, 2.3, 300)
     param_names = model_cfg["params"]
@@ -504,7 +552,7 @@ if __name__ == "__main__":
 
     # 2. Punto di partenza della catena
     # [H0,   Omega_m, w0,   wa,  M  ]
-    cfg = MODELS["LCDM"]
+    cfg = MODELS[MODEL]
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC

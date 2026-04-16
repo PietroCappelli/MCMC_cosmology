@@ -19,17 +19,36 @@ import matplotlib.pyplot as plt
 from scipy.integrate import quad
 import pandas as pd
 import requests
-import os
 import sys
+import os
 
-
-# ── Scegli il modello qui ──────────────────────
-MODEL = "LCDM"   # oppure "w0CDM" oppure "w0waCDM"
+# ── Select the model ──────────────────────
+MODEL = "w0waCDM_SNe_BAO_margM"
 # ──────────────────────────────────────────────
 
 MODELS = {
-    "LCDM": {
-        "name_plot" : "LCDM",
+    "LCDM_priorSH0ES": {
+        "params":       ["H0", "Omega_m"],        # M marginalizzata
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30],
+        "step_sizes":   [0.3, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+    },
+    "w0waCDM_Prior": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],
+        "fixed":      {},
+        "theta0":     [73.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0),
+            "wa": (-3, 3)},
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+    },
+    "LCDM_Prior_Mfree": {
         "params":     ["H0", "Omega_m", "M"],
         "fixed":      {"w0": -1.0, "wa": 0.0},
         "theta0":     [70.0, 0.30, 0.0],
@@ -37,35 +56,51 @@ MODELS = {
         "prior_bounds": {
             "H0": (50, 90),
             "Omega_m": (0.1, 0.6),
-            "M": (-1, 1)
-        }
+            "M": (-1.0, 1.0)
+        },
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
     },
-    "w0CDM": {
-        "name_plot" : "w0CDM",
-        "params":     ["H0", "Omega_m", "w0", "M"],
-        "fixed":      {"wa": 0.0},
-        "theta0":     [70.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "M": (-1, 1)
-        }
-    },
-    "w0waCDM": {
-        "name_plot" : "w0waCDM",
+    "LCDM_Prior_Mfree_w0wa": {
         "params":     ["H0", "Omega_m", "w0", "wa", "M"],
         "fixed":      {},
         "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1, 0.008],
+        "step_sizes": [0.4, 0.005, 0.05, 0.1, 0.005],
         "prior_bounds": {
             "H0": (50, 90),
             "Omega_m": (0.1, 0.6),
             "w0": (-2, 0),
             "wa": (-3, 3),
-            "M": (-1, 1)
-        }
+            "M": (-1.0, 1.0)
+        },
+        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+    },
+    "w0waCDM_SNe_BAO": {
+        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
+        "fixed":      {},
+        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
+        "step_sizes": [0.3, 0.006, 0.04, 0.1, 0.005],
+        "prior_bounds": {
+            "H0":      (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0":      (-2, 0),
+            "wa":      (-3, 3),
+            "M":       (-1.0, 1.0)
+        },
+        "prior_gauss": {}   # nessun prior esterno
+    },
+    "w0waCDM_SNe_BAO_margM": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],  # M non c'è
+        "fixed":      {},
+        "theta0":     [70.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.3, 0.004, 0.04, 0.1],
+        "prior_bounds": {
+            "H0":      (60, 80),   # range ristretto
+            "Omega_m": (0.1, 0.6),
+            "w0":      (-2, 0),
+            "wa":      (-3, 3)
+        },
+        "prior_gauss": {}, # nessun prior esterno
+        "marginalize_M": True,
     }
 }
 
@@ -121,17 +156,30 @@ def load_data(data_path="Pantheon+SH0ES.dat", cov_path="Pantheon+SH0ES_STAT+SYS.
 
     return z, mu_obs, cov_inv
 
+# BAO_DATA = [
+#     # z      DM/rd   sDM    DH/rd   sDH    rho
+#     (0.295,  7.93,   0.15,  20.08,  0.60,  -0.39),  # BGS
+#     (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
+#     (0.706,  16.85,  0.32,  20.08,  0.60,  -0.35),  # LRG2
+#     (0.930,  21.71,  0.28,  17.88,  0.35,  -0.38),  # LRG3+ELG1
+#     (1.317,  27.79,  0.69,  13.82,  0.42,  -0.47),  # ELG2
+#     (1.491,  30.21,  0.79,  12.90,  0.40,  -0.43),  # QSO
+#     (2.330,  39.71,  0.94,   8.52,  0.17,  -0.45),  # Lya
+# ]
 BAO_DATA = [
     # z      DM/rd   sDM    DH/rd   sDH    rho
-    (0.295,  7.93,   0.15,  20.08,  0.60,  -0.39),  # BGS
     (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
     (0.706,  16.85,  0.32,  20.08,  0.60,  -0.35),  # LRG2
     (0.930,  21.71,  0.28,  17.88,  0.35,  -0.38),  # LRG3+ELG1
     (1.317,  27.79,  0.69,  13.82,  0.42,  -0.47),  # ELG2
-    (1.491,  30.21,  0.79,  12.90,  0.40,  -0.43),  # QSO
     (2.330,  39.71,  0.94,   8.52,  0.17,  -0.45),  # Lya
 ]
-
+# Punti con solo DV/rd (isotropici) — BGS e QSO
+BAO_DATA_ISO = [
+    # z      DV/rd   sDV
+    (0.295,  7.93,   0.15),   # BGS
+    (1.491,  26.07,  0.67),   # QSO
+]
 # ─────────────────────────────────────────────
 # 2. MODELLO COSMOLOGICO
 # ─────────────────────────────────────────────
@@ -222,6 +270,30 @@ def log_likelihood_sne(theta, z, mu_obs, cov_inv, model_cfg):
     delta = mu_obs - mu_th
     return -0.5 * delta @ cov_inv @ delta
 
+def log_likelihood_sne_marginal(theta, z, mu_obs, cov_inv, model_cfg):
+    params = dict(zip(model_cfg["params"], theta))
+    params.update(model_cfg["fixed"])
+
+    H0      = params["H0"]
+    Omega_m = params["Omega_m"]
+    w0      = params["w0"]
+    wa      = params["wa"]
+
+    if Omega_m <= 0 or Omega_m >= 1:
+        return -np.inf
+    if H0 <= 0:
+        return -np.inf
+
+    mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+    delta = mu_obs - mu_th  # niente M
+
+    # Marginalizzazione analitica su M
+    A = delta @ cov_inv @ delta
+    B = np.sum(cov_inv @ delta)
+    C = np.sum(cov_inv)
+
+    return -0.5 * (A - B**2 / C)
+
 def log_likelihood_bao(theta, model_cfg, bao_data=BAO_DATA):
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
@@ -255,32 +327,34 @@ def log_likelihood_bao(theta, model_cfg, bao_data=BAO_DATA):
     return log_l
 
 def log_likelihood_combined(theta, z_sne, mu_obs, cov_inv, model_cfg):
-    return (log_likelihood_sne(theta, z_sne, mu_obs, cov_inv, model_cfg) +
-            log_likelihood_bao(theta, model_cfg))
+    if model_cfg.get("marginalize_M", False):  # default False if no key
+        sne_ll = log_likelihood_sne_marginal(theta, z_sne, mu_obs, cov_inv, model_cfg)
+    else:
+        sne_ll = log_likelihood_sne(theta, z_sne, mu_obs, cov_inv, model_cfg)
+    
+    return sne_ll + log_likelihood_bao(theta, model_cfg)
 
 # ─────────────────────────────────────────────
 # 4. PRIOR
 # ─────────────────────────────────────────────
 
 def log_prior(theta, model_cfg):
-    """
-    Prior piatte (uninformative) entro range fisicamente ragionevoli.
-    Si possono sostituire con prior gaussiane se si hanno vincoli esterni.
-
-    H0        in [50, 90]       km/s/Mpc
-    Omega_m   in [0.1, 0.6]
-    w0        in [-2, 0]        (w0 = -1 è LCDM)
-    wa        in [-3, 3]
-    M         in [-1, 1]        offset di calibrazione
-    """
     params = dict(zip(model_cfg["params"], theta))
     bounds = model_cfg["prior_bounds"]
+
+    # Prior uniform
     for name, value in params.items():
         lo, hi = bounds[name]
         if not (lo < value < hi):
             return -np.inf
-    return 0.0
 
+    # Prior gaussian
+    lp = 0.0
+    for name, (mean, std) in model_cfg.get("prior_gauss", {}).items():
+        if name in params:
+            lp += -0.5 * ((params[name] - mean) / std)**2
+
+    return lp
 
 # ─────────────────────────────────────────────
 # 4. FAKE-POSTERIOR
@@ -354,11 +428,10 @@ def run_mcmc(z, mu_obs, cov_inv,
         # Progress ogni 1000 passi
         if (i + 1) % 1000 == 0:
             acc = n_accepted / (i + 1)
-            print(f"  Passo {i+1}/{n_steps} — acceptance rate: {acc:.2%}")
+            print(f"  Step {i+1}/{n_steps} — acceptance rate: {acc:.2%}")
 
     accept_rate = n_accepted / n_steps
-    print(f"\nCatena completata. Acceptance rate finale: {accept_rate:.2%}")
-    print("  (ideale: 23-40%. Se troppo basso -> riduci step_sizes, se troppo alto -> aumentali)")
+    print(f"\nChain completed. Acceptance rate final: {accept_rate:.2%}")
 
     return chain, log_post, accept_rate
 
@@ -377,13 +450,13 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
     burn_in = int(n_steps * burn_in_frac)
 
     chain_burned = chain[burn_in:]
-    print(f"\nBurn-in rimosso: {burn_in} passi. Catena utile: {len(chain_burned)} passi.")
+    print(f"\nBurn-in removed: {burn_in} steps. Used chain: {len(chain_burned)} steps.")
 
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
     
     
-    print("\nRisultati (mediana e intervallo 68%):")
+    print("\nResults (median and interval 68%):")
     print("-" * 45)
     results = {}
     for i, name in enumerate(param_names):
@@ -401,7 +474,7 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
 # 7. PLOT
 # ─────────────────────────────────────────────
 
-def plot_trace(chain, log_post,folder_name, model_cfg, burn_in_frac=0.3):
+def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     """Trace plots: mostra l'evoluzione di ogni parametro nella catena."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -425,39 +498,68 @@ def plot_trace(chain, log_post,folder_name, model_cfg, burn_in_frac=0.3):
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
     plt.tight_layout()
-    plt.savefig(f"{folder_name}/trace_plots_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/trace_plots.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
 
 
-def plot_corner(chain_burned, folder_name, model_cfg):
-    """
-    Corner plot manuale (senza librerie esterne).
-    Per un corner plot più bello: pip install corner
-    e poi: import corner; corner.corner(chain_burned, labels=[...])
-    """
+def plot_corner(chain_burned, model_cfg, folder_name):
     try:
         import corner
-        # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+
         param_names = model_cfg["params"]
-        
-        fig = corner.corner(chain_burned, labels=param_names,
-                            quantiles=[0.16, 0.5, 0.84],
-                            show_titles=True, title_kwargs={"fontsize": 10})
-        fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig(f"{folder_name}/corner_plot_{model_cfg["name_plot"]}.png", dpi=150)
+
+        # Palette colori
+        color_main  = "#2E86AB"   # blu acciaio
+        color_fill  = "#A8DADC"   # azzurro chiaro
+        color_quant = "#E63946"   # rosso vivo per i quantili
+
+        fig = corner.corner(
+            chain_burned,
+            labels=param_names,
+            quantiles=[0.16, 0.5, 0.84],
+            show_titles=True,
+            title_kwargs={"fontsize": 11, "color": color_main},
+            label_kwargs={"fontsize": 12},
+            color=color_main,
+            levels=(0.68, 0.95),
+            fill_contours=True,
+            contourf_kwargs={"colors": [color_fill, color_main], "alpha": 0.5},
+            contour_kwargs={"colors": color_main, "linewidths": 1.2},
+            hist_kwargs={"color": color_main, "linewidth": 1.8,
+                         "histtype": "stepfilled", "alpha": 0.35,
+                         "edgecolor": color_main},
+            quantile_kwargs={"color": color_quant, "linewidth": 1.2, "linestyle": "--"},
+        )
+
+        fig.patch.set_facecolor("white")
+        for ax in fig.get_axes():
+            ax.set_facecolor("white")
+            ax.tick_params(colors="#333333", labelsize=8)
+            ax.xaxis.label.set_color("#333333")
+            ax.yaxis.label.set_color("#333333")
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#CCCCCC")  # bordi pannelli grigi sottili
+
+        fig.suptitle("Corner Plot — Marginali PDF",
+                     fontsize=14, color="#333333",
+                     fontweight="bold", y=1.01)
+
+        plt.savefig(f"{folder_name}/corner_plot.png",
+                    dpi=150, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
         plt.show()
         print("Salvato: corner_plot.png")
-        
+
     except ImportError:
         print("Libreria 'corner' non installata. Installa con: pip install corner")
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
-    _plot_marginals(chain_burned, model_cfg, folder_name=folder_name)
+    _plot_marginals(chain_burned, model_cfg, folder_name)
+    
 
-
-def _plot_marginals(chain_burned, model_cfg):
+def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
@@ -471,11 +573,11 @@ def _plot_marginals(chain_burned, model_cfg):
     axes[0].legend(fontsize=8)
     fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
-    plt.savefig(f"{folder_name}/marginals_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
 
 
-def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name,n_samples=200):
+def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_samples=200):
     
     z_plot     = np.linspace(0.01, 2.3, 300)
     param_names = model_cfg["params"]
@@ -486,7 +588,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name,n_sample
         params = dict(zip(param_names, theta))
         params.update(fixed)
         return (params["H0"], params["Omega_m"],
-                params["w0"], params["wa"], params["M"])
+                params["w0"], params["wa"], params.get("M", 0.0))
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 7),
                                     gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
@@ -521,7 +623,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name,n_sample
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
-    plt.savefig(f"{folder_name}/hubble_diagram_{model_cfg["name_plot"]}.png", dpi=150)
+    plt.savefig(f"{folder_name}/hubble_diagram.png", dpi=150)
     plt.show()
 
 # ─────────────────────────────────────────────
@@ -536,15 +638,14 @@ if __name__ == "__main__":
 
     folder_name = sys.argv[1]
     os.makedirs(folder_name, exist_ok=True)
-
+    
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
 
-    # 2. Punto di partenza della catena    
+    # 2. Punto di partenza della catena
     # [H0,   Omega_m, w0,   wa,  M  ]
-    # theta0 = [70.0,  0.30,   -1. 0, 0.0, 0.0]
-    cfg = MODELS["LCDM"]
+    cfg = MODELS[MODEL]
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC
@@ -553,7 +654,7 @@ if __name__ == "__main__":
     chain, log_post, acc_rate = run_mcmc(
         z, mu_obs, cov_inv,
         theta0=theta0,
-        n_steps=20000,
+        n_steps=40000,
         # step_sizes=[0.4, 0.008, 0.04, 0.08, 0.008],
         model_cfg=cfg
     )
