@@ -23,10 +23,58 @@ import sys
 import os
 
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Prior_Mfree"
+MODEL = "LCDM_Mfree_Prior_SH0ES"
 # ──────────────────────────────────────────────
 
 MODELS = {
+    "LCDM": {
+        "params":       ["H0", "Omega_m", "M"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30, 0.0],
+        "step_sizes":   [0.4, 0.008, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6),
+                         "M": (-1.0, 1.0)},
+        "prior_gauss":  {},
+        "marginalize_M": False,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarginal": {
+        "params":       ["H0", "Omega_m"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30],
+        "step_sizes":   [0.4, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarginal_Prior_SH0ES": {
+        "params":       ["H0", "Omega_m"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30],
+        "step_sizes":   [0.4, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6)},
+        "prior_gauss":  {"H0": (73.04, 1.04)},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mfree_Prior_SH0ES": {
+        "params":       ["H0", "Omega_m", "M"],
+        "fixed":        {"w0": -1.0, "wa": 0.0},
+        "theta0":       [73.0, 0.30, 0.0],
+        "step_sizes":   [0.4, 0.008, 0.008],
+        "prior_bounds": {"H0": (50, 90), 
+                         "Omega_m": (0.1, 0.6),
+                         "M": (-1.0, 1.0)},
+        "prior_gauss":  {},
+        "marginalize_M": False,
+        "n_steps": 30000
+    },
+    
+    
     "LCDM_priorSH0ES": {
         "params":       ["H0", "Omega_m"],        # M marginalizzata
         "fixed":        {"w0": -1.0, "wa": 0.0},
@@ -175,8 +223,8 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
 # ─────────────────────────────────────────────
 # 3. LIKELIHOOD
 # ─────────────────────────────────────────────
-def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
-    ### M marginalizzata -> not a free parameter
+def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
+
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
 
@@ -201,7 +249,7 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
     return -0.5 * (A - B**2 / C)
 
 
-def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
+def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
     ### M marginalizzata -> not a free parameter
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
@@ -293,9 +341,9 @@ def log_posterior(theta, z, mu_obs, cov_inv, model_cfg):
         return -np.inf
     
     if model_cfg.get("marginalize_M", False):  # default False if no key
-        ll = log_likelihood_marginal(theta, mu_obs, cov_inv, model_cfg)
+        ll = log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg)
     else:
-        ll = log_likelihood(theta, mu_obs, cov_inv, model_cfg)
+        ll = log_likelihood(theta, z, mu_obs, cov_inv, model_cfg)
 
     return lp + ll
 
@@ -405,7 +453,6 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
 
     return chain_burned, results
 
-
 # ─────────────────────────────────────────────
 # 7. PLOT
 # ─────────────────────────────────────────────
@@ -438,33 +485,60 @@ def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     plt.show()
     print("Salvato: trace_plots.png")
 
-
 def plot_corner(chain_burned, model_cfg, folder_name):
-    """
-    Corner plot manuale (senza librerie esterne).
-    Per un corner plot più bello: pip install corner
-    e poi: import corner; corner.corner(chain_burned, labels=[...])
-    """
     try:
         import corner
-        # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+
         param_names = model_cfg["params"]
-        
-        fig = corner.corner(chain_burned, labels=param_names,
-                            quantiles=[0.16, 0.5, 0.84],
-                            show_titles=True, title_kwargs={"fontsize": 10})
-        fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig(f"{folder_name}/corner_plot.png", dpi=150)
+
+        # Palette colori
+        color_main  = "#2E86AB"   # blu acciaio
+        color_fill  = "#A8DADC"   # azzurro chiaro
+        color_quant = "#E63946"   # rosso vivo per i quantili
+
+        fig = corner.corner(
+            chain_burned,
+            labels=param_names,
+            quantiles=[0.16, 0.5, 0.84],
+            show_titles=True,
+            title_kwargs={"fontsize": 11, "color": color_main},
+            label_kwargs={"fontsize": 12},
+            color=color_main,
+            levels=(0.68, 0.95),
+            fill_contours=True,
+            contourf_kwargs={"colors": [color_fill, color_main], "alpha": 0.5},
+            contour_kwargs={"colors": color_main, "linewidths": 1.2},
+            hist_kwargs={"color": color_main, "linewidth": 1.8,
+                         "histtype": "stepfilled", "alpha": 0.35,
+                         "edgecolor": color_main},
+            quantile_kwargs={"color": color_quant, "linewidth": 1.2, "linestyle": "--"},
+        )
+
+        fig.patch.set_facecolor("white")
+        for ax in fig.get_axes():
+            ax.set_facecolor("white")
+            ax.tick_params(colors="#333333", labelsize=8)
+            ax.xaxis.label.set_color("#333333")
+            ax.yaxis.label.set_color("#333333")
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#CCCCCC")  # bordi pannelli grigi sottili
+
+        fig.suptitle("Corner Plot — Marginali PDF",
+                     fontsize=14, color="#333333",
+                     fontweight="bold", y=1.01)
+
+        plt.savefig(f"{folder_name}/corner_plot.png",
+                    dpi=150, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
         plt.show()
         print("Salvato: corner_plot.png")
-        
+
     except ImportError:
         print("Libreria 'corner' non installata. Installa con: pip install corner")
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
     _plot_marginals(chain_burned, model_cfg, folder_name)
-
 
 def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
@@ -482,7 +556,6 @@ def _plot_marginals(chain_burned, model_cfg, folder_name):
     plt.tight_layout()
     plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
-
 
 def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_samples=200):
     
@@ -549,11 +622,15 @@ if __name__ == "__main__":
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
-
+              
     # 2. Punto di partenza della catena
     # [H0,   Omega_m, w0,   wa,  M  ]
     cfg = MODELS[MODEL]
     theta0 = cfg["theta0"]
+    if cfg.get("marginalize_M", False): 
+        print("Marginalizing the likelhood")
+    else: 
+        print("NO Marginalizing the likelhood")
 
     # 3. Esegui l'MCMC
     # NOTA: per un risultato affidabile usa n_steps >= 50000
@@ -561,8 +638,7 @@ if __name__ == "__main__":
     chain, log_post, acc_rate = run_mcmc(
         z, mu_obs, cov_inv,
         theta0=theta0,
-        n_steps=20000,
-        # step_sizes=[0.4, 0.008, 0.04, 0.08, 0.008],
+        n_steps=cfg["n_steps"], 
         model_cfg=cfg
     )
 

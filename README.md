@@ -60,9 +60,77 @@ Potentially we want to estimate 5 parameters: $H0, M, \Omega _m, w0, wa$. In par
 BAO is an orthogonal dataset wrt to SNe
 
 
-Just for me:
+## Just for me (Pietro):
 + SNe sole → H0 non misurabile, degenerazione totale
 + prior SH0ES → H0 ~ 73, M ~ 0, risultato pulito ma prior-dependent
 + prior Planck → H0 ~ 67, M ~ -0.1, tensione visibile
 + BAO, no prior → H0 ~ 68 dai dati, M ~ -0.16, tensione ancora presente
 + BAO, M marginalizzata → risultato più robusto, 4 parametri liberi
+
+
+- Blocco 1 — Solo SNe, capire le degenerazioni
+    - Caso 1a — SNe, ΛCDM, M libera, no prior
+    Parametri: H0, Ω_m, M
+    Risultato atteso: H0 vaga, M degenere con H0, Ω_m ok
+    Messaggio: degenerazione H0-M, le SNe non misurano H0
+    ```
+    H0         = 71.9763  +6.3445 / -2.5632
+    Omega_m    = 0.3302  +0.0190 / -0.0192
+    M          = -0.0398  +0.1857 / -0.0788
+    ```
+
+    - Caso 1b — SNe, ΛCDM, M marginalizzata, no prior
+    Parametri: H0, Ω_m
+    Risultato atteso: H0 ancora vaga ma Ω_m pulito
+    Messaggio: marginalizzare M non basta, serve ancora un'ancora su H0
+    ```
+    H0         = 77.5700  +10.2513 / -9.3145
+    Omega_m    = 0.3313  +0.0183 / -0.0191
+    ```
+
+    - Caso 1c — SNe, ΛCDM, M marginalizzata, prior Planck
+    Parametri: H0, Ω_m
+    Risultato atteso: H0 ~ 67.4, Ω_m ~ 0.33, distribuzioni pulite
+    Messaggio: con prior esterno tutto converge — ma stai assumendo Planck
+    - Caso 1d — SNe, ΛCDM, M marginalizzata, prior SH0ES
+    Parametri: H0, Ω_m
+    Risultato atteso: H0 ~ 73, Ω_m leggermente diverso da 1c
+    Messaggio: prior diversa → risultato diverso → questa è la tensione di Hubble
+
+- Blocco 2 — Aggiungere BAO, rompere le degenerazioni
+    - Caso 2a — SNe + BAO, ΛCDM, M libera, no prior
+    Parametri: H0, Ω_m, M
+    Risultato atteso: H0 ~ 68 dai dati, M ~ -0.16, Ω_m ~ 0.30
+    Messaggio: i BAO ancorano H0 geometricamente senza prior — M ≠ 0 è la tensione di Hubble
+    - Caso 2b — SNe + BAO, ΛCDM, M marginalizzata, no prior
+    Parametri: H0, Ω_m
+    Risultato atteso: H0 ~ 68, Ω_m ~ 0.30, distribuzioni pulite
+    Messaggio: caso più robusto per ΛCDM — nessuna assunzione esterna
+
+- Blocco 3 — Energia oscura dinamica
+    - Caso 3a — SNe + BAO, w0CDM, M marginalizzata, no prior
+    Parametri: H0, Ω_m, w0
+    Risultato atteso: w0 ~ -0.9, compatibile con -1
+    Messaggio: primo test su energia oscura, le SNe+BAO sono compatibili con ΛCDM
+    - Caso 3b — SNe + BAO, w0waCDM, M marginalizzata, no prior
+    Parametri: H0, Ω_m, w0, wa
+    Risultato atteso: w0 ~ -0.89, wa ~ -0.33 con grandi incertezze
+    Messaggio: wa mal vincolato senza CMB, ma compatibile con 0 — no evidenza forte di DE dinamica
+
+- Bonus:
+    - SNe only, w0waCDM, M marginalizzata, prior Planck 
+    → mostra quanto sono larghe le posterior su w0 e wa senza BAO
+    - SNe + BAO, w0waCDM, M marginalizzata, no prior 
+    → stesso modello con BAO → le posterior si stringono visibilmente
+(Ha senso includerlo solo come caso dimostrativo per mostrare cosa succede senza BAO. Il messaggio sarebbe chiaro — w0 e wa sono completamente mal vincolati con sole SNe, le posterior sono larghissime e la banana w0-wa è enorme.
+Però attenzione — senza BAO e senza prior su H0, con 4 parametri liberi la catena faticherà molto a convergere. Aggiungi almeno il prior su H0, altrimenti rischi di non ottenere nulla di interpretabile.)
+
+I plot da fare
+Plot 1 — Corner plot per ogni caso
+Mostrano le posterior marginali e le correlazioni tra parametri. I più importanti da confrontare sono 1c vs 1d (tensione di Hubble) e 2b vs 3b (effetto di aggiungere w0, wa).
+Plot 2 — Confronto posterior H0
+Un singolo plot con tutte le distribuzioni marginali di H0 sovrapposte — casi 1c, 1d, 2a, 2b. Si vede visivamente come il prior o i BAO spostano e stringono H0.
+Plot 3 — Diagramma di Hubble
+Best fit + banda di incertezza sovrapposta ai dati Pantheon. Uno per il caso ΛCDM e uno per w0waCDM — si vede come le curve differiscono a alto redshift.
+Plot 4 — Confronto contorni w0-wa
+Se hai il tempo, un plot che mostra i contorni 68% e 95% nel piano w0-wa con una stella su (-1, 0) per ΛCDM. È la figura classica dei paper di energia oscura.
