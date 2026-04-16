@@ -504,31 +504,60 @@ def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
 
 
 def plot_corner(chain_burned, model_cfg, folder_name):
-    """
-    Corner plot manuale (senza librerie esterne).
-    Per un corner plot più bello: pip install corner
-    e poi: import corner; corner.corner(chain_burned, labels=[...])
-    """
     try:
         import corner
-        # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
+
         param_names = model_cfg["params"]
-        
-        fig = corner.corner(chain_burned, labels=param_names,
-                            quantiles=[0.16, 0.5, 0.84],
-                            show_titles=True, title_kwargs={"fontsize": 10})
-        fig.suptitle("Corner plot — PDF marginali", fontsize=13)
-        plt.savefig(f"{folder_name}/corner_plot.png", dpi=150)
+
+        # Palette colori
+        color_main  = "#2E86AB"   # blu acciaio
+        color_fill  = "#A8DADC"   # azzurro chiaro
+        color_quant = "#E63946"   # rosso vivo per i quantili
+
+        fig = corner.corner(
+            chain_burned,
+            labels=param_names,
+            quantiles=[0.16, 0.5, 0.84],
+            show_titles=True,
+            title_kwargs={"fontsize": 11, "color": color_main},
+            label_kwargs={"fontsize": 12},
+            color=color_main,
+            levels=(0.68, 0.95),
+            fill_contours=True,
+            contourf_kwargs={"colors": [color_fill, color_main], "alpha": 0.5},
+            contour_kwargs={"colors": color_main, "linewidths": 1.2},
+            hist_kwargs={"color": color_main, "linewidth": 1.8,
+                         "histtype": "stepfilled", "alpha": 0.35,
+                         "edgecolor": color_main},
+            quantile_kwargs={"color": color_quant, "linewidth": 1.2, "linestyle": "--"},
+        )
+
+        fig.patch.set_facecolor("white")
+        for ax in fig.get_axes():
+            ax.set_facecolor("white")
+            ax.tick_params(colors="#333333", labelsize=8)
+            ax.xaxis.label.set_color("#333333")
+            ax.yaxis.label.set_color("#333333")
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#CCCCCC")  # bordi pannelli grigi sottili
+
+        fig.suptitle("Corner Plot — Marginali PDF",
+                     fontsize=14, color="#333333",
+                     fontweight="bold", y=1.01)
+
+        plt.savefig(f"{folder_name}/corner_plot.png",
+                    dpi=150, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
         plt.show()
         print("Salvato: corner_plot.png")
-        
+
     except ImportError:
         print("Libreria 'corner' non installata. Installa con: pip install corner")
         print("Nel frattempo produco istogrammi 1D...")
         _plot_marginals(chain_burned)
 
     _plot_marginals(chain_burned, model_cfg, folder_name)
-
+    
 
 def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
@@ -625,7 +654,7 @@ if __name__ == "__main__":
     chain, log_post, acc_rate = run_mcmc(
         z, mu_obs, cov_inv,
         theta0=theta0,
-        n_steps=30000,
+        n_steps=40000,
         # step_sizes=[0.4, 0.008, 0.04, 0.08, 0.008],
         model_cfg=cfg
     )

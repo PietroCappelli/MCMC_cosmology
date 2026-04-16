@@ -330,9 +330,9 @@ def run_mcmc(z, mu_obs, cov_inv,
     lpost_current  = log_posterior(theta_current, z, mu_obs, cov_inv, model_cfg=model_cfg)
     n_accepted     = 0
 
-    print(f"Avvio catena MCMC: {n_steps} passi, {n_params} parametri")
-    print(f"Punto iniziale: {theta_current}")
-    print(f"log-posterior iniziale: {lpost_current:.2f}")
+    print(f"Start MCMC: {n_steps} passi, {n_params} parametri")
+    print(f"Initial Point: {theta_current}")
+    print(f"Initial log-posterior: {lpost_current:.2f}")
 
     for i in range(n_steps):
         # Proposta: passo gaussiano simmetrico

@@ -34,7 +34,8 @@ MODELS = {
         "step_sizes":   [0.3, 0.008],
         "prior_bounds": {"H0": (50, 90), 
                          "Omega_m": (0.1, 0.6)},
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
+        "marginalize_M": True,
     },
     "w0waCDM_Prior": {
         "params":     ["H0", "Omega_m", "w0", "wa"],
@@ -46,7 +47,8 @@ MODELS = {
             "Omega_m": (0.1, 0.6),
             "w0": (-2, 0),
             "wa": (-3, 3)},
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
+        "marginalize_M": False,
     },
     "LCDM_Prior_Mfree": {
         "params":     ["H0", "Omega_m", "M"],
@@ -173,8 +175,33 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
 # ─────────────────────────────────────────────
 # 3. LIKELIHOOD
 # ─────────────────────────────────────────────
-
 def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
+    ### M marginalizzata -> not a free parameter
+    params = dict(zip(model_cfg["params"], theta))
+    params.update(model_cfg["fixed"])
+
+    H0      = params["H0"]
+    Omega_m = params["Omega_m"]
+    w0      = params["w0"]
+    wa      = params["wa"]
+    # M non esiste — né in params né in fixed
+
+    if Omega_m <= 0 or Omega_m >= 1:
+        return -np.inf
+    if H0 <= 0:
+        return -np.inf
+
+    mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+    delta = mu_obs - mu_th
+
+    A = delta @ cov_inv @ delta
+    B = np.sum(cov_inv @ delta)
+    C = np.sum(cov_inv)
+
+    return -0.5 * (A - B**2 / C)
+
+
+def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
     ### M marginalizzata -> not a free parameter
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
@@ -192,13 +219,7 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
         return -np.inf
 
     mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
-    """    # delta = mu_obs - mu_th
 
-    # A = delta @ cov_inv @ delta
-    # B = np.sum(cov_inv @ delta)
-    # C = np.sum(cov_inv)
-
-    # return -0.5 * (A - B**2 / C)"""
     mu_th += M       # M entra nel modello
     delta = mu_obs - mu_th   # delta calcolato con M inclusa
 
@@ -270,7 +291,13 @@ def log_posterior(theta, z, mu_obs, cov_inv, model_cfg):
     lp = log_prior(theta, model_cfg)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(theta, z, mu_obs, cov_inv, model_cfg)
+    
+    if model_cfg.get("marginalize_M", False):  # default False if no key
+        ll = log_likelihood_marginal(theta, mu_obs, cov_inv, model_cfg)
+    else:
+        ll = log_likelihood(theta, mu_obs, cov_inv, model_cfg)
+
+    return lp + ll
 
 
 # ─────────────────────────────────────────────
