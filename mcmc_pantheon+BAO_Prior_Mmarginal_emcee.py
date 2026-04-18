@@ -21,111 +21,14 @@ import pandas as pd
 import requests
 import sys
 import os
+import emcee
 
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Mfree_Prior_SH0ES"
+MODEL = "LCDM_Mmarg_NoPrior_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
-    "LCDM": {
-        "params":       ["H0", "Omega_m", "M"],
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30, 0.0],
-        "step_sizes":   [0.4, 0.008, 0.008],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6),
-                         "M": (-1.0, 1.0)},
-        "prior_gauss":  {},
-        "marginalize_M": False,
-        "n_steps": 30000
-    },
-    "LCDM_Mmarginal": {
-        "params":       ["H0", "Omega_m"],
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30],
-        "step_sizes":   [0.4, 0.008],
-        # "step_sizes":   [1.0, 0.015],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6)},
-        "prior_gauss":  {},
-        "marginalize_M": True,
-        "n_steps": 30000
-    },
-    "LCDM_Mmarginal_Prior_SH0ES": {
-        "params":       ["H0", "Omega_m"],
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30],
-        # "step_sizes":   [0.4, 0.008],
-        "step_sizes":   [1.0, 0.015],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6)},
-        "prior_gauss":  {"H0": (73.04, 1.04)},
-        "marginalize_M": True,
-        "n_steps": 30000
-    },
-    "LCDM_Mfree_Prior_SH0ES": {
-        "params":       ["H0", "Omega_m", "M"],
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30, 0.0],
-        "step_sizes":   [0.4, 0.008, 0.008],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6),
-                         "M": (-1.0, 1.0)},
-        "prior_gauss":  {"H0": (73.04, 1.04)},
-        "marginalize_M": False,
-        "n_steps": 30000
-    },
-    "LCDM_Mfree_Prior_Plank": {
-        "params":       ["H0", "Omega_m", "M"],
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30, 0.0],
-        "step_sizes":   [0.4, 0.008, 0.008],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6),
-                         "M": (-1.0, 1.0)},
-        "prior_gauss":  {"H0": (67.4, 0.5)},
-        "marginalize_M": False,
-        "n_steps": 30000
-    },
-    "LCDM_Mmarginal_Prior_SH0ES_w0wa": {
-        "params":     ["H0", "Omega_m", "w0", "wa"],
-        "fixed":      {},
-        "theta0":     [73.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3)},
-        "prior_gauss":  {"H0": (73.04, 1.04)},
-        "marginalize_M": True,
-        "n_steps": 40000
-    },
-    
-    "LCDM_priorSH0ES": {
-        "params":       ["H0", "Omega_m"],        # M marginalizzata
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30],
-        "step_sizes":   [0.3, 0.008],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6)},
-        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
-        "marginalize_M": True,
-    },
-    "w0waCDM_Prior": {
-        "params":     ["H0", "Omega_m", "w0", "wa"],
-        "fixed":      {},
-        "theta0":     [73.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3)},
-        "prior_gauss":  {"H0": (73.04, 1.04)},     # SH0ES 2022
-        "marginalize_M": False,
-    },
-    "LCDM_Prior_Mfree": {
+    "LCDM_Mfree_NoPrior": {
         "params":     ["H0", "Omega_m", "M"],
         "fixed":      {"w0": -1.0, "wa": 0.0},
         "theta0":     [70.0, 0.30, 0.0],
@@ -135,21 +38,48 @@ MODELS = {
             "Omega_m": (0.1, 0.6),
             "M": (-1.0, 1.0)
         },
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+        "prior_gauss":  {},
+        "marginalize_M": False,
+        "n_steps": 30000
     },
-    "LCDM_Prior_Mfree_w0wa": {
-        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
+    "LCDM_Mmarg_NoPrior": {
+        "params":     ["H0", "Omega_m"],
+        "fixed":      {"w0": -1.0, "wa": 0.0},
+        "theta0":     [70.0, 0.30],
+        "step_sizes": [0.4, 0.008],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+        },
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarg_NoPrior_w0": {
+        "params":     ["H0", "Omega_m", "w0"],
+        "fixed":      {"wa": 0.0},
+        "theta0":     [70.0, 0.30, -1.0],
+        "step_sizes": [0.4, 0.008, 0.05],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0)},
+        "prior_gauss":  {},
+        "marginalize_M": True,
+        "n_steps": 30000
+    },
+    "LCDM_Mmarg_NoPrior_w0wa": {
+        "params":     ["H0", "Omega_m", "w0", "wa"],
         "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1, 0.008],
+        "theta0":     [70.0, 0.30, -1.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1],
         "prior_bounds": {
             "H0": (50, 90),
             "Omega_m": (0.1, 0.6),
             "w0": (-2, 0),
-            "wa": (-3, 3),
-            "M": (-1.0, 1.0)
-        },
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
+            "wa": (-3, 3)},
+        "prior_gauss":  {},
+        "marginalize_M": True,
     }
 }
 
@@ -205,6 +135,20 @@ def load_data(data_path="Pantheon+SH0ES.dat", cov_path="Pantheon+SH0ES_STAT+SYS.
 
     return z, mu_obs, cov_inv
 
+BAO_DATA = [
+    # z      DM/rd   sDM    DH/rd   sDH    rho
+    (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
+    (0.706,  16.85,  0.32,  20.08,  0.60,  -0.35),  # LRG2
+    (0.930,  21.71,  0.28,  17.88,  0.35,  -0.38),  # LRG3+ELG1
+    (1.317,  27.79,  0.69,  13.82,  0.42,  -0.47),  # ELG2
+    (2.330,  39.71,  0.94,   8.52,  0.17,  -0.45),  # Lya
+]
+# Punti con solo DV/rd (isotropici) — BGS e QSO
+BAO_DATA_ISO = [
+    # z      DV/rd   sDV
+    (0.295,  7.93,   0.15),   # BGS
+    (1.491,  26.07,  0.67),   # QSO
+]
 # ─────────────────────────────────────────────
 # 2. MODELLO COSMOLOGICO
 # ─────────────────────────────────────────────
@@ -246,12 +190,56 @@ def distance_modulus_model(z_array, H0, Omega_m, w0, wa):
         mu[i] = 5 * np.log10(dL) + 25  # converti Mpc -> pc aggiunge 25
     return mu
 
+def comoving_distance(z, H0, Omega_m, w0, wa):
+    """Distanza comovente in Mpc."""
+    def integrand(zp):
+        return 1.0 / E(zp, Omega_m, w0, wa)
+    integral, _ = quad(integrand, 0, z, limit=100)
+    return (c_light / H0) * integral
+
+def DM_over_rd(z, H0, Omega_m, w0, wa, rd=147.09):
+    return comoving_distance(z, H0, Omega_m, w0, wa) / rd
+
+def DH_over_rd(z, H0, Omega_m, w0, wa, rd=147.09):
+    return (c_light / (H0 * E(z, Omega_m, w0, wa))) / rd
 
 # ─────────────────────────────────────────────
 # 3. LIKELIHOOD
 # ─────────────────────────────────────────────
-def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
 
+def log_likelihood_sne(theta, z, mu_obs, cov_inv, model_cfg):
+    """
+    ln L(theta) = -1/2 * Delta_mu^T C^{-1} Delta_mu
+
+    theta = [H0, Omega_m, w0, wa, M, sigma_int]
+
+    M è un offset sulla calibrazione assoluta:
+      mu_model_corrected = mu_model + M
+    sigma_int è lo scatter intrinseco delle SNe Ia:
+      aggiunge sigma_int^2 alla diagonale della covarianza
+      (in questa implementazione semplificata lo ignoriamo,
+       ma è il settimo parametro standard nelle analisi avanzate)
+    """
+    # unpack dinamico
+    params = dict(zip(model_cfg["params"], theta))
+    params.update(model_cfg["fixed"]) # aggiungi i parametri fissati
+
+    H0, Omega_m = params["H0"], params["Omega_m"]
+    w0, wa, M   = params["w0"], params["wa"], params["M"]
+
+    # Controllo sui parametri fisici (evita chiamate inutili)
+    if Omega_m <= 0 or Omega_m >= 1:
+        return -np.inf
+    if H0 <= 0:
+        return -np.inf
+
+    mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+    mu_th += M  # offset di calibrazione assoluta
+
+    delta = mu_obs - mu_th
+    return -0.5 * delta @ cov_inv @ delta
+
+def log_likelihood_sne_marginal(theta, z, mu_obs, cov_inv, model_cfg):
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
 
@@ -259,7 +247,6 @@ def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
     Omega_m = params["Omega_m"]
     w0      = params["w0"]
     wa      = params["wa"]
-    # M non esiste — né in params né in fixed
 
     if Omega_m <= 0 or Omega_m >= 1:
         return -np.inf
@@ -267,17 +254,16 @@ def log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg):
         return -np.inf
 
     mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
-    delta = mu_obs - mu_th
+    delta = mu_obs - mu_th  # niente M
 
+    # Marginalizzazione analitica su M
     A = delta @ cov_inv @ delta
     B = np.sum(cov_inv @ delta)
     C = np.sum(cov_inv)
 
     return -0.5 * (A - B**2 / C)
 
-
-def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
-    ### M marginalizzata -> not a free parameter
+def log_likelihood_bao(theta, model_cfg, bao_data=BAO_DATA):
     params = dict(zip(model_cfg["params"], theta))
     params.update(model_cfg["fixed"])
 
@@ -285,70 +271,53 @@ def log_likelihood(theta, z, mu_obs, cov_inv, model_cfg):
     Omega_m = params["Omega_m"]
     w0      = params["w0"]
     wa      = params["wa"]
-    M       = params["M"]
-    # M non esiste — né in params né in fixed
 
-    if Omega_m <= 0 or Omega_m >= 1:
-        return -np.inf
-    if H0 <= 0:
+    if Omega_m <= 0 or Omega_m >= 1 or H0 <= 0:
         return -np.inf
 
-    mu_th = distance_modulus_model(z, H0, Omega_m, w0, wa)
+    log_l = 0.0
+    for (z, DM_obs, sDM, DH_obs, sDH, rho) in bao_data:
 
-    mu_th += M       # M entra nel modello
-    delta = mu_obs - mu_th   # delta calcolato con M inclusa
+        DM_th = DM_over_rd(z, H0, Omega_m, w0, wa)
+        DH_th = DH_over_rd(z, H0, Omega_m, w0, wa)
 
-    return -0.5 * delta @ cov_inv @ delta    
+        # Residui
+        delta = np.array([DM_obs - DM_th, DH_obs - DH_th])
 
+        # Matrice di covarianza 2x2 per questo punto
+        cov_bao = np.array([
+            [sDM**2,       rho * sDM * sDH],
+            [rho * sDM * sDH, sDH**2      ]
+        ])
+        cov_bao_inv = np.linalg.inv(cov_bao)
 
+        log_l += -0.5 * delta @ cov_bao_inv @ delta
+
+    return log_l
+
+def log_likelihood_combined(theta, z_sne, mu_obs, cov_inv, model_cfg):
+    if model_cfg.get("marginalize_M", False):  # default False if no key
+        sne_ll = log_likelihood_sne_marginal(theta, z_sne, mu_obs, cov_inv, model_cfg)
+    else:
+        sne_ll = log_likelihood_sne(theta, z_sne, mu_obs, cov_inv, model_cfg)
+    
+    return sne_ll + log_likelihood_bao(theta, model_cfg)
 
 # ─────────────────────────────────────────────
 # 4. PRIOR
 # ─────────────────────────────────────────────
 
-# def log_prior(theta, model_cfg):
-#     """
-#     Prior piatte (uninformative) entro range fisicamente ragionevoli.
-#     Si possono sostituire con prior gaussiane se si hanno vincoli esterni.
-
-#     H0        in [50, 90]       km/s/Mpc
-#     Omega_m   in [0.1, 0.6]
-#     w0        in [-2, 0]        (w0 = -1 è LCDM)
-#     wa        in [-3, 3]
-#     M         in [-1, 1]        offset di calibrazione
-#     """
-#     params = dict(zip(model_cfg["params"], theta))
-#     bounds = model_cfg["prior_bounds"]
-#     for name, value in params.items():
-#         lo, hi = bounds[name]
-#         if not (lo < value < hi):
-#             return -np.inf
-#     return 0.0
-# def log_prior(theta, model_cfg):
-#     params = dict(zip(model_cfg["params"], theta))
-#     bounds = model_cfg["prior_bounds"]
-
-#     for name, value in params.items():
-#         lo, hi = bounds[name]
-#         if not (lo < value < hi):
-#             return -np.inf
-
-#     # Prior gaussiano su H0 da SH0ES
-#     H0 = params["H0"]
-#     H0_mean, H0_std = 67.4, 1.0
-#     return -0.5 * ((H0 - H0_mean) / H0_std)**2
-
 def log_prior(theta, model_cfg):
     params = dict(zip(model_cfg["params"], theta))
     bounds = model_cfg["prior_bounds"]
 
-    # Prior piatti
+    # Prior uniform
     for name, value in params.items():
         lo, hi = bounds[name]
         if not (lo < value < hi):
             return -np.inf
 
-    # Prior gaussiani — letti dal dizionario
+    # Prior gaussian
     lp = 0.0
     for name, (mean, std) in model_cfg.get("prior_gauss", {}).items():
         if name in params:
@@ -359,93 +328,46 @@ def log_prior(theta, model_cfg):
 # ─────────────────────────────────────────────
 # 4. FAKE-POSTERIOR
 # ─────────────────────────────────────────────
-def log_posterior(theta, z, mu_obs, cov_inv, model_cfg):
-    """
-    Non è una vera e propria posterior ma è per calcolare il rapporto di accettanza della nuova proposal
-    """
+def log_posterior(theta, z_sne, mu_obs, cov_inv, model_cfg):
     lp = log_prior(theta, model_cfg)
     if not np.isfinite(lp):
         return -np.inf
-    
-    if model_cfg.get("marginalize_M", False):  # default False if no key
-        ll = log_likelihood_marginal(theta, z, mu_obs, cov_inv, model_cfg)
-    else:
-        ll = log_likelihood(theta, z, mu_obs, cov_inv, model_cfg)
-
-    return lp + ll
-
+    return lp + log_likelihood_combined(theta, z_sne, mu_obs, cov_inv, model_cfg)
 
 # ─────────────────────────────────────────────
 # 5. METROPOLIS-HASTINGS
 # ─────────────────────────────────────────────
 
-def run_mcmc(z, mu_obs, cov_inv,
-             theta0,
-             model_cfg,
-             n_steps=10000,
-             step_sizes=None,
-             seed=42):
-    """
-    Algoritmo di Metropolis-Hastings.
-
-    Parametri:
-      theta0      : punto iniziale [H0, Omega_m, w0, wa, M]
-      n_steps     : numero totale di passi
-      step_sizes  : ampiezza della proposta gaussiana per ogni parametro
-                    (da tuningare per avere acceptance rate ~23-40%)
-      seed        : seme random per riproducibilità
-
-    Restituisce:
-      chain       : array (n_steps, n_params) con tutti i punti campionati
-      log_post    : array (n_steps,) con i valori del log-posteriore
-      accept_rate : frazione di mosse accettate
-    """
-    np.random.seed(seed)
-    n_params = len(theta0)
+def run_mcmc_emcee(z, mu_obs, cov_inv, model_cfg, n_steps=5000, n_walkers=32):
     
-    theta0     = model_cfg["theta0"]
-    step_sizes = model_cfg["step_sizes"]  # presi dal config, non hardcoded
-    n_params   = len(theta0)              # si adatta automaticamente
-
-    chain    = np.zeros((n_steps, n_params))
-    log_post = np.zeros(n_steps)
-
-    theta_current  = np.array(theta0, dtype=float)
-    lpost_current  = log_posterior(theta_current, z, mu_obs, cov_inv, model_cfg=model_cfg)
-    n_accepted     = 0
-
-    print(f"Avvio catena MCMC: {n_steps} passi, {n_params} parametri")
-    print(f"Punto iniziale: {theta_current}")
-    print(f"log-posterior iniziale: {lpost_current:.2f}")
-
-    for i in range(n_steps):
-        # Proposta: passo gaussiano simmetrico
-        theta_proposed = theta_current + np.random.normal(0, step_sizes, n_params)
-
-        # Calcola il log-posteriore nel nuovo punto
-        lpost_proposed = log_posterior(theta_proposed, z, mu_obs, cov_inv, model_cfg=model_cfg)
-
-        # Criterio di accettazione di Metropolis
-        log_ratio = lpost_proposed - lpost_current
-        if np.log(np.random.uniform()) < log_ratio:
-            theta_current = theta_proposed
-            lpost_current = lpost_proposed
-            n_accepted += 1
-
-        chain[i]    = theta_current
-        log_post[i] = lpost_current
-
-        # Progress ogni 1000 passi
-        if (i + 1) % 1000 == 0:
-            acc = n_accepted / (i + 1)
-            print(f"  Passo {i+1}/{n_steps} — acceptance rate: {acc:.2%}")
-
-    accept_rate = n_accepted / n_steps
-    print(f"\nCatena completata. Acceptance rate finale: {accept_rate:.2%}")
-    print("  (ideale: 23-40%. Se troppo basso -> riduci step_sizes, se troppo alto -> aumentali)")
-
-    return chain, log_post, accept_rate
-
+    n_params  = len(model_cfg["params"])
+    theta0    = np.array(model_cfg["theta0"])
+    
+    # Inizializza i walker con piccola perturbazione intorno a theta0
+    pos = theta0 + 1e-3 * np.random.randn(n_walkers, n_params)
+    
+    # Funzione log_posterior già esistente — non cambia nulla!
+    def log_prob(theta):
+        return log_posterior(theta, z, mu_obs, cov_inv, model_cfg)
+    
+    sampler = emcee.EnsembleSampler(n_walkers, n_params, log_prob)
+    
+    # Burn-in
+    print("Burn-in...")
+    pos, _, _ = sampler.run_mcmc(pos, 500, progress=True)
+    sampler.reset()
+    
+    # Run principale
+    print("Run Main...")
+    sampler.run_mcmc(pos, n_steps, progress=True)
+    
+    # Estrai la chain — shape (n_walkers * n_steps, n_params)
+    chain = sampler.get_chain(flat=True)
+    log_post = sampler.get_log_prob(flat=True)
+    
+    print(f"Average acceptance rate: {np.mean(sampler.acceptance_fraction):.2%}")
+    
+    return chain, log_post
 
 # ─────────────────────────────────────────────
 # 6. ANALISI DELLA CATENA
@@ -461,13 +383,13 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
     burn_in = int(n_steps * burn_in_frac)
 
     chain_burned = chain[burn_in:]
-    print(f"\nBurn-in rimosso: {burn_in} passi. Catena utile: {len(chain_burned)} passi.")
+    print(f"\nBurn-in removed: {burn_in} steps. Used chain: {len(chain_burned)} steps.")
 
     # param_names = ["H0", "Omega_m", "w0", "wa", "M"]
     param_names = model_cfg["params"]
     
     
-    print("\nRisultati (mediana e intervallo 68%):")
+    print("\nResults (median and interval 68%):")
     print("-" * 45)
     results = {}
     for i, name in enumerate(param_names):
@@ -479,6 +401,7 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
         results[name] = (med, lo, hi)
 
     return chain_burned, results
+
 
 # ─────────────────────────────────────────────
 # 7. PLOT
@@ -511,6 +434,7 @@ def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     plt.savefig(f"{folder_name}/trace_plots.png", dpi=150)
     plt.show()
     print("Salvato: trace_plots.png")
+
 
 def plot_corner(chain_burned, model_cfg, folder_name):
     try:
@@ -566,6 +490,7 @@ def plot_corner(chain_burned, model_cfg, folder_name):
         _plot_marginals(chain_burned)
 
     _plot_marginals(chain_burned, model_cfg, folder_name)
+    
 
 def _plot_marginals(chain_burned, model_cfg, folder_name):
     """Istogrammi 1D dei parametri (fallback se corner non è installato)."""
@@ -583,6 +508,7 @@ def _plot_marginals(chain_burned, model_cfg, folder_name):
     plt.tight_layout()
     plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
+
 
 def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_samples=200):
     
@@ -649,28 +575,21 @@ if __name__ == "__main__":
     # 1. Scarica e carica i dati
     # download_pantheon()
     z, mu_obs, cov_inv = load_data()
-              
+
     # 2. Punto di partenza della catena
-    # [H0,   Omega_m, w0,   wa,  M  ]
     cfg = MODELS[MODEL]
     theta0 = cfg["theta0"]
-    if cfg.get("marginalize_M", False): 
-        print("Marginalizing the likelhood")
-    else: 
-        print("NO Marginalizing the likelhood")
 
     # 3. Esegui l'MCMC
-    # NOTA: per un risultato affidabile usa n_steps >= 50000
-    # Per un test rapido inizia con n_steps=5000
-    chain, log_post, acc_rate = run_mcmc(
-        z, mu_obs, cov_inv,
-        theta0=theta0,
-        n_steps=cfg["n_steps"], 
-        model_cfg=cfg
-    )
-
+    chain, log_post = run_mcmc_emcee(
+        z, mu_obs, cov_inv, 
+        model_cfg=cfg,
+        n_steps=5000, 
+        n_walkers=32
+        )
+    
     # 4. Analisi della catena (rimuove burn-in)
-    chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
+    chain_burned, results = analyze_chain(chain, log_post, burn_in_frac=0.0, model_cfg=cfg)
 
     # 5. Plot
     plot_trace(chain, log_post, folder_name=folder_name, model_cfg=cfg)

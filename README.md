@@ -95,6 +95,9 @@ BAO is an orthogonal dataset wrt to SNe
     Risultato atteso: H0 ~ 67.4, Ω_m ~ 0.33, distribuzioni pulite
     Messaggio: con prior esterno tutto converge — ma stai assumendo Planck
     ```
+    H0         = 67.4471  +0.4544 / -0.4800
+    Omega_m    = 0.3314  +0.0166 / -0.0179
+    M          = -0.1790  +0.0158 / -0.0174
     ```
 
     - Caso 1d — SNe, ΛCDM, M marginalizzata, prior SH0ES
@@ -109,9 +112,9 @@ BAO is an orthogonal dataset wrt to SNe
     - Caso 1e — SNe, ΛCDM, M free, prior SH0ES
     Parametri: H0, Ω_m, M
     ```
-    H0         = 76.5765  +8.6310 / -6.7244
-    Omega_m    = 0.3306  +0.0169 / -0.0177
-    M          = 0.0947  +0.2328 / -0.1984
+  H0         = 73.2458  +1.0085 / -0.9963
+  Omega_m    = 0.3307  +0.0190 / -0.0169
+  M          = -0.0001  +0.0313 / -0.0304
     ```
 
 

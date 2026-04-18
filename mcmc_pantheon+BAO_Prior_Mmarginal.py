@@ -23,7 +23,7 @@ import sys
 import os
 
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Mmarg_NoPrior_w0wa"
+MODEL = "LCDM_Mfree_NoPrior_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
@@ -81,7 +81,21 @@ MODELS = {
         "marginalize_M": True,
         "n_steps": 40000
     },
-
+    "LCDM_Mfree_NoPrior_w0wa": {
+        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
+        "fixed":      {},
+        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
+        "step_sizes": [0.4, 0.008, 0.05, 0.1, 0.008],
+        "prior_bounds": {
+            "H0": (50, 90),
+            "Omega_m": (0.1, 0.6),
+            "w0": (-2, 0),
+            "wa": (-3, 3),
+            "M": (-1.0, 1.0)},
+        "prior_gauss":  {},
+        "marginalize_M": False,
+        "n_steps": 50000
+    },
 
 
     "LCDM_priorSH0ES": {
