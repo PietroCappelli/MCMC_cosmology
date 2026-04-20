@@ -615,7 +615,9 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_sampl
                       for zz in z_plot])
     ax1.plot(z_plot, mu_bf, color="steelblue", lw=2, label="best fit")
 
-    ax1.scatter(z, mu_obs, s=3, color="orange", alpha=0.4, zorder=5, label="Pantheon+")
+    ax1.scatter(z, mu_obs, s=3, color="Blues",edgecolors="steelblue", 
+                alpha=0.8, zorder=5, label="Pantheon+",
+                )
     ax1.set_ylabel(r"$\mu$ (modulo di distanza)", fontsize=11)
     ax1.legend(fontsize=10)
     ax1.set_title("Diagramma di Hubble", fontsize=12)
