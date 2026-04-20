@@ -426,7 +426,7 @@ def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     axes[-1].plot(log_post, color="gray", lw=0.4)
     axes[-1].axvline(burn_in, color="red", lw=1.2, linestyle="--")
     axes[-1].set_ylabel("ln posterior", fontsize=10)
-    axes[-1].set_xlabel("passo MCMC", fontsize=10)
+    axes[-1].set_xlabel("step MCMC", fontsize=10)
 
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
@@ -474,9 +474,9 @@ def plot_corner(chain_burned, model_cfg, folder_name):
             for spine in ax.spines.values():
                 spine.set_edgecolor("#CCCCCC")  # bordi pannelli grigi sottili
 
-        fig.suptitle("Corner Plot — Marginali PDF",
-                     fontsize=14, color="#333333",
-                     fontweight="bold", y=1.01)
+        # fig.suptitle("Corner Plot — Marginali PDF",
+        #              fontsize=14, color="#333333",
+        #              fontweight="bold", y=1.01)
 
         plt.savefig(f"{folder_name}/corner_plot.png",
                     dpi=150, bbox_inches="tight",
@@ -501,10 +501,10 @@ def _plot_marginals(chain_burned, model_cfg, folder_name):
     for i, (ax, name) in enumerate(zip(axes, param_names)):
         ax.hist(chain_burned[:, i], bins=50, color="steelblue", edgecolor="white", lw=0.3)
         ax.set_xlabel(name, fontsize=10)
-        ax.set_ylabel("conteggi", fontsize=9)
+        ax.set_ylabel("Events", fontsize=9)
         ax.axvline(np.median(chain_burned[:, i]), color="orange", lw=1.5, label="mediana")
     axes[0].legend(fontsize=8)
-    fig.suptitle("PDF marginali dei parametri", fontsize=12)
+    # fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
     plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
@@ -542,9 +542,9 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_sampl
     ax1.plot(z_plot, mu_bf, color="steelblue", lw=2, label="best fit")
 
     ax1.scatter(z, mu_obs, s=3, color="orange", alpha=0.4, zorder=5, label="Pantheon+")
-    ax1.set_ylabel(r"$\mu$ (modulo di distanza)", fontsize=11)
+    ax1.set_ylabel(r"$\mu$ (distance modulus)", fontsize=11)
     ax1.legend(fontsize=10)
-    ax1.set_title("Diagramma di Hubble", fontsize=12)
+    # ax1.set_title("Diagramma di Hubble", fontsize=12)
 
     # Residui
     mu_pred   = distance_modulus_model(z, H0, Om, w0, wa) + M
@@ -552,7 +552,7 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_sampl
     ax2.scatter(z, residuals, s=3, color="gray", alpha=0.4)
     ax2.axhline(0, color="steelblue", lw=1.5)
     ax2.set_xlabel("redshift z", fontsize=11)
-    ax2.set_ylabel("residui", fontsize=11)
+    ax2.set_ylabel("Residual", fontsize=11)
     ax2.set_ylim(-1.5, 1.5)
 
     plt.tight_layout()
