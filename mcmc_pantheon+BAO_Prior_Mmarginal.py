@@ -21,9 +21,9 @@ import pandas as pd
 import requests
 import sys
 import os
-
+from mcmc_pantheon_Prior_Mmarginal import save_results
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Mfree_NoPrior_w0wa"
+MODEL = "LCDM_Mmarg_NoPrior_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
@@ -716,6 +716,8 @@ if __name__ == "__main__":
 
     # 4. Analisi della catena (rimuove burn-in)
     chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
+    # 4b.
+    save_results(chain_burned, results, cfg, case_name=MODEL, folder=folder_name)
 
     # 5. Plot
     plot_trace(chain, log_post, folder_name=folder_name, model_cfg=cfg)
