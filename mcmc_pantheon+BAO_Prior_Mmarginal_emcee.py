@@ -21,9 +21,10 @@ import pandas as pd
 import requests
 import sys
 import os
+import emcee
 
 # ── Select the model ──────────────────────
-MODEL = "LCDM_Mfree_NoPrior_w0wa"
+MODEL = "LCDM_Mmarg_NoPrior_w0wa"
 # ──────────────────────────────────────────────
 
 MODELS = {
@@ -78,87 +79,6 @@ MODELS = {
             "w0": (-2, 0),
             "wa": (-3, 3)},
         "prior_gauss":  {},
-        "marginalize_M": True,
-        "n_steps": 40000
-    },
-    "LCDM_Mfree_NoPrior_w0wa": {
-        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
-        "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3),
-            "M": (-1.0, 1.0)},
-        "prior_gauss":  {},
-        "marginalize_M": False,
-        "n_steps": 50000
-    },
-
-
-    "LCDM_priorSH0ES": {
-        "params":       ["H0", "Omega_m"],        # M marginalizzata
-        "fixed":        {"w0": -1.0, "wa": 0.0},
-        "theta0":       [73.0, 0.30],
-        "step_sizes":   [0.3, 0.008],
-        "prior_bounds": {"H0": (50, 90), 
-                         "Omega_m": (0.1, 0.6)},
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
-    },
-    "w0waCDM_Prior": {
-        "params":     ["H0", "Omega_m", "w0", "wa"],
-        "fixed":      {},
-        "theta0":     [73.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.4, 0.008, 0.05, 0.1],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3)},
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
-    },
-    "LCDM_Prior_Mfree_w0wa": {
-        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
-        "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.4, 0.005, 0.05, 0.1, 0.005],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3),
-            "M": (-1.0, 1.0)
-        },
-        "prior_gauss":  {"H0": (73.04, 1.04)}     # SH0ES 2022
-    },
-    "w0waCDM_SNe_BAO": {
-        "params":     ["H0", "Omega_m", "w0", "wa", "M"],
-        "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_sizes": [0.3, 0.006, 0.04, 0.1, 0.005],
-        "prior_bounds": {
-            "H0":      (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0":      (-2, 0),
-            "wa":      (-3, 3),
-            "M":       (-1.0, 1.0)
-        },
-        "prior_gauss": {}   # nessun prior esterno
-    },
-    "w0waCDM_SNe_BAO_margM": {
-        "params":     ["H0", "Omega_m", "w0", "wa"],  # M non c'è
-        "fixed":      {},
-        "theta0":     [70.0, 0.30, -1.0, 0.0],
-        "step_sizes": [0.3, 0.004, 0.04, 0.1],
-        "prior_bounds": {
-            "H0":      (60, 80),   # range ristretto
-            "Omega_m": (0.1, 0.6),
-            "w0":      (-2, 0),
-            "wa":      (-3, 3)
-        },
-        "prior_gauss": {}, # nessun prior esterno
         "marginalize_M": True,
     }
 }
@@ -215,16 +135,6 @@ def load_data(data_path="Pantheon+SH0ES.dat", cov_path="Pantheon+SH0ES_STAT+SYS.
 
     return z, mu_obs, cov_inv
 
-# BAO_DATA = [
-#     # z      DM/rd   sDM    DH/rd   sDH    rho
-#     (0.295,  7.93,   0.15,  20.08,  0.60,  -0.39),  # BGS
-#     (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
-#     (0.706,  16.85,  0.32,  20.08,  0.60,  -0.35),  # LRG2
-#     (0.930,  21.71,  0.28,  17.88,  0.35,  -0.38),  # LRG3+ELG1
-#     (1.317,  27.79,  0.69,  13.82,  0.42,  -0.47),  # ELG2
-#     (1.491,  30.21,  0.79,  12.90,  0.40,  -0.43),  # QSO
-#     (2.330,  39.71,  0.94,   8.52,  0.17,  -0.45),  # Lya
-# ]
 BAO_DATA = [
     # z      DM/rd   sDM    DH/rd   sDH    rho
     (0.510,  13.62,  0.25,  20.98,  0.61,  -0.44),  # LRG1
@@ -428,72 +338,36 @@ def log_posterior(theta, z_sne, mu_obs, cov_inv, model_cfg):
 # 5. METROPOLIS-HASTINGS
 # ─────────────────────────────────────────────
 
-def run_mcmc(z, mu_obs, cov_inv,
-             theta0,
-             model_cfg,
-             n_steps=10000,
-             step_sizes=None,
-             seed=42):
-    """
-    Algoritmo di Metropolis-Hastings.
-
-    Parametri:
-      theta0      : punto iniziale [H0, Omega_m, w0, wa, M]
-      n_steps     : numero totale di passi
-      step_sizes  : ampiezza della proposta gaussiana per ogni parametro
-                    (da tuningare per avere acceptance rate ~23-40%)
-      seed        : seme random per riproducibilità
-
-    Restituisce:
-      chain       : array (n_steps, n_params) con tutti i punti campionati
-      log_post    : array (n_steps,) con i valori del log-posteriore
-      accept_rate : frazione di mosse accettate
-    """
-    np.random.seed(seed)
-    n_params = len(theta0)
+def run_mcmc_emcee(z, mu_obs, cov_inv, model_cfg, n_steps=5000, n_walkers=32):
     
-    theta0     = model_cfg["theta0"]
-    step_sizes = model_cfg["step_sizes"]  # presi dal config, non hardcoded
-    n_params   = len(theta0)              # si adatta automaticamente
-
-    chain    = np.zeros((n_steps, n_params))
-    log_post = np.zeros(n_steps)
-
-    theta_current  = np.array(theta0, dtype=float)
-    lpost_current  = log_posterior(theta_current, z, mu_obs, cov_inv, model_cfg=model_cfg)
-    n_accepted     = 0
-
-    print(f"Start MCMC: {n_steps} passi, {n_params} parametri")
-    print(f"Initial Point: {theta_current}")
-    print(f"Initial log-posterior: {lpost_current:.2f}")
-
-    for i in range(n_steps):
-        # Proposta: passo gaussiano simmetrico
-        theta_proposed = theta_current + np.random.normal(0, step_sizes, n_params)
-
-        # Calcola il log-posteriore nel nuovo punto
-        lpost_proposed = log_posterior(theta_proposed, z, mu_obs, cov_inv, model_cfg=model_cfg)
-
-        # Criterio di accettazione di Metropolis
-        log_ratio = lpost_proposed - lpost_current
-        if np.log(np.random.uniform()) < log_ratio:
-            theta_current = theta_proposed
-            lpost_current = lpost_proposed
-            n_accepted += 1
-
-        chain[i]    = theta_current
-        log_post[i] = lpost_current
-
-        # Progress ogni 1000 passi
-        if (i + 1) % 1000 == 0:
-            acc = n_accepted / (i + 1)
-            print(f"  Step {i+1}/{n_steps} — acceptance rate: {acc:.2%}")
-
-    accept_rate = n_accepted / n_steps
-    print(f"\nChain completed. Acceptance rate final: {accept_rate:.2%}")
-
-    return chain, log_post, accept_rate
-
+    n_params  = len(model_cfg["params"])
+    theta0    = np.array(model_cfg["theta0"])
+    
+    # Inizializza i walker con piccola perturbazione intorno a theta0
+    pos = theta0 + 1e-3 * np.random.randn(n_walkers, n_params)
+    
+    # Funzione log_posterior già esistente — non cambia nulla!
+    def log_prob(theta):
+        return log_posterior(theta, z, mu_obs, cov_inv, model_cfg)
+    
+    sampler = emcee.EnsembleSampler(n_walkers, n_params, log_prob)
+    
+    # Burn-in
+    print("Burn-in...")
+    pos, _, _ = sampler.run_mcmc(pos, 500, progress=True)
+    sampler.reset()
+    
+    # Run principale
+    print("Run Main...")
+    sampler.run_mcmc(pos, n_steps, progress=True)
+    
+    # Estrai la chain — shape (n_walkers * n_steps, n_params)
+    chain = sampler.get_chain(flat=True)
+    log_post = sampler.get_log_prob(flat=True)
+    
+    print(f"Average acceptance rate: {np.mean(sampler.acceptance_fraction):.2%}")
+    
+    return chain, log_post
 
 # ─────────────────────────────────────────────
 # 6. ANALISI DELLA CATENA
@@ -552,7 +426,7 @@ def plot_trace(chain, log_post, model_cfg, folder_name, burn_in_frac=0.3):
     axes[-1].plot(log_post, color="gray", lw=0.4)
     axes[-1].axvline(burn_in, color="red", lw=1.2, linestyle="--")
     axes[-1].set_ylabel("ln posterior", fontsize=10)
-    axes[-1].set_xlabel("step MCMC", fontsize=10)
+    axes[-1].set_xlabel("passo MCMC", fontsize=10)
 
     axes[0].legend(fontsize=9)
     fig.suptitle("Trace plots", fontsize=13)
@@ -600,9 +474,9 @@ def plot_corner(chain_burned, model_cfg, folder_name):
             for spine in ax.spines.values():
                 spine.set_edgecolor("#CCCCCC")  # bordi pannelli grigi sottili
 
-        # fig.suptitle("Corner Plot — Marginali PDF",
-        #              fontsize=14, color="#333333",
-        #              fontweight="bold", y=1.01)
+        fig.suptitle("Corner Plot — Marginali PDF",
+                     fontsize=14, color="#333333",
+                     fontweight="bold", y=1.01)
 
         plt.savefig(f"{folder_name}/corner_plot.png",
                     dpi=150, bbox_inches="tight",
@@ -627,10 +501,10 @@ def _plot_marginals(chain_burned, model_cfg, folder_name):
     for i, (ax, name) in enumerate(zip(axes, param_names)):
         ax.hist(chain_burned[:, i], bins=50, color="steelblue", edgecolor="white", lw=0.3)
         ax.set_xlabel(name, fontsize=10)
-        ax.set_ylabel("Events", fontsize=9)
+        ax.set_ylabel("conteggi", fontsize=9)
         ax.axvline(np.median(chain_burned[:, i]), color="orange", lw=1.5, label="mediana")
     axes[0].legend(fontsize=8)
-    # fig.suptitle("PDF marginali dei parametri", fontsize=12)
+    fig.suptitle("PDF marginali dei parametri", fontsize=12)
     plt.tight_layout()
     plt.savefig(f"{folder_name}/marginals.png", dpi=150)
     plt.show()
@@ -668,9 +542,9 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_sampl
     ax1.plot(z_plot, mu_bf, color="steelblue", lw=2, label="best fit")
 
     ax1.scatter(z, mu_obs, s=3, color="orange", alpha=0.4, zorder=5, label="Pantheon+")
-    ax1.set_ylabel(r"$\mu$ (distance modulus)", fontsize=11)
+    ax1.set_ylabel(r"$\mu$ (modulo di distanza)", fontsize=11)
     ax1.legend(fontsize=10)
-    # ax1.set_title("Diagramma di Hubble", fontsize=12)
+    ax1.set_title("Diagramma di Hubble", fontsize=12)
 
     # Residui
     mu_pred   = distance_modulus_model(z, H0, Om, w0, wa) + M
@@ -707,15 +581,15 @@ if __name__ == "__main__":
     theta0 = cfg["theta0"]
 
     # 3. Esegui l'MCMC
-    chain, log_post, acc_rate = run_mcmc(
-        z, mu_obs, cov_inv,
-        theta0=theta0,
-        n_steps=cfg["n_steps"], 
-        model_cfg=cfg
-    )
-
+    chain, log_post = run_mcmc_emcee(
+        z, mu_obs, cov_inv, 
+        model_cfg=cfg,
+        n_steps=5000, 
+        n_walkers=32
+        )
+    
     # 4. Analisi della catena (rimuove burn-in)
-    chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
+    chain_burned, results = analyze_chain(chain, log_post, burn_in_frac=0.0, model_cfg=cfg)
 
     # 5. Plot
     plot_trace(chain, log_post, folder_name=folder_name, model_cfg=cfg)
