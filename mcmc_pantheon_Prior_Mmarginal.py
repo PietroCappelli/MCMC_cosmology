@@ -21,6 +21,7 @@ import pandas as pd
 import requests
 import sys
 import os
+import pickle
 
 # ── Select the model ──────────────────────
 MODEL = "LCDM_Mfree_Prior_SH0ES"
@@ -477,7 +478,7 @@ def analyze_chain(chain, log_post, model_cfg, burn_in_frac=0.3):
         hi      = np.percentile(samples, 84)
         print(f"  {name:10s} = {med:.4f}  +{hi-med:.4f} / -{med-lo:.4f}")
         results[name] = (med, lo, hi)
-
+    
     return chain_burned, results
 
 # ─────────────────────────────────────────────
@@ -635,6 +636,21 @@ def plot_hubble_diagram(z, mu_obs, chain_burned, model_cfg, folder_name, n_sampl
     plt.savefig(f"{folder_name}/hubble_diagram.png", dpi=150)
     plt.show()
 
+
+def save_results(chain_burned, results, model_cfg, case_name, folder="results"):
+    import os
+    os.makedirs(folder, exist_ok=True)
+    
+    # Salva la chain
+    np.save(f"{folder}/chain_{case_name}.npy", chain_burned)
+    
+    # Salva model_cfg e results (contiene param names ecc)
+    with open(f"{folder}/cfg_{case_name}.pkl", "wb") as f:
+        pickle.dump({"model_cfg": model_cfg, "results": results}, f)
+    
+    print(f"Salvato: {folder}/chain_{case_name}.npy")
+
+
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
@@ -673,6 +689,8 @@ if __name__ == "__main__":
 
     # 4. Analisi della catena (rimuove burn-in)
     chain_burned, results = analyze_chain(chain, log_post, model_cfg=cfg, burn_in_frac=0.3)
+    # 4b. Save results
+    save_results(chain_burned, results, cfg, case_name=MODEL, folder=folder_name)
 
     # 5. Plot
     plot_trace(chain, log_post, folder_name=folder_name, model_cfg=cfg)

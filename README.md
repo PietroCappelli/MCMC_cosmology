@@ -35,22 +35,22 @@ Potentially we want to estimate 5 parameters: $H0, M, \Omega _m, w0, wa$. In par
     - Prior + M marginal: (Ωmw0wa_Prior_Mmarginalized)
     - No prior: 
 
-- Caso M marginal e prior:
+- case M marginal e prior:
   H0         = 73.18  +1.14 / -1.06
   Omega_m    = 0.33  +0.02 / -0.02
 
-- Caso M free, prior H: (si vede chiaramente la ellisse per H0 e M)
+- case M free, prior H: (si vede chiaramente la ellisse per H0 e M)
   H0         = 73.1515  +0.8782 / -1.0058
   Omega_m    = 0.3289  +0.0192 / -0.0178
   M          = -0.0029  +0.0273 / -0.0329
 
-- Caso M  marginal, prior e w:
+- case M  marginal, prior e w:
   H0         = 72.9976  +1.1579 / -1.0501
   Omega_m    = 0.3227  +0.0706 / -0.0966
   w0         = -0.9439  +0.1369 / -0.1401
   wa         = -0.0915  +0.6585 / -1.1695
 
-- Caso M free, prior H e w: Attenzione che però non so perchè ma in questo caso Ωm ha una distribuzione molto brutta e anche wa. Mentre w0 molto buona insieme a H0 e M
+- case M free, prior H e w: Attenzione che però non so perchè ma in questo case Ωm ha una distribuzione molto brutta e anche wa. Mentre w0 molto buona insieme a H0 e M
   H0         = 72.7461  +1.0267 / -0.8158
   Omega_m    = 0.3200  +0.0981 / -0.1354
   w0         = -0.9206  +0.1044 / -0.1485
@@ -67,12 +67,12 @@ BAO is an orthogonal dataset wrt to SNe
 + prior SH0ES → H0 ~ 73, M ~ 0, risultato pulito ma prior-dependent
 + prior Planck → H0 ~ 67, M ~ -0.1, tensione visibile
 + BAO, no prior → H0 ~ 68 dai dati, M ~ -0.16, tensione ancora presente
-+ BAO, M marginalizzata → risultato più robusto, 4 parametri liberi
++ BAO, M marginal → risultato più robusto, 4 Parameters liberi
 
 
-- Blocco 1 — Solo SNe, capire le degenerazioni
-    - Caso 1a — SNe, ΛCDM, M libera, no prior
-    Parametri: H0, Ω_m, M
+- Block 1 — Solo SNe, understand degenerazioni
+    - case 1a — SNe, ΛCDM, M libera, no prior
+    Parameters: H0, Ω_m, M
     Risultato atteso: H0 vaga, M degenere con H0, Ω_m ok
     Messaggio: degenerazione H0-M, le SNe non misurano H0
     ```
@@ -81,8 +81,8 @@ BAO is an orthogonal dataset wrt to SNe
     M          = -0.0398  +0.1857 / -0.0788
     ```
 
-    - Caso 1b — SNe, ΛCDM, M marginalizzata, no prior
-    Parametri: H0, Ω_m
+    - case 1b — SNe, ΛCDM, M marginal, no prior
+    Parameters: H0, Ω_m
     Risultato atteso: H0 ancora vaga ma Ω_m pulito
     Messaggio: marginalizzare M non basta, serve ancora un'ancora su H0
     ```
@@ -90,8 +90,8 @@ BAO is an orthogonal dataset wrt to SNe
     Omega_m    = 0.3313  +0.0183 / -0.0191
     ```
 
-    - Caso 1c — SNe, ΛCDM, M marginalizzata, prior Planck
-    Parametri: H0, Ω_m
+    - case 1c — SNe, ΛCDM, M free, prior Planck
+    Parameters: H0, Ω_m
     Risultato atteso: H0 ~ 67.4, Ω_m ~ 0.33, distribuzioni pulite
     Messaggio: con prior esterno tutto converge — ma stai assumendo Planck
     ```
@@ -100,8 +100,8 @@ BAO is an orthogonal dataset wrt to SNe
     M          = -0.1790  +0.0158 / -0.0174
     ```
 
-    - Caso 1d — SNe, ΛCDM, M marginalizzata, prior SH0ES
-    Parametri: H0, Ω_m
+    - case 1d — SNe, ΛCDM, M marginal, prior SH0ES
+    Parameters: H0, Ω_m
     Risultato atteso: H0 ~ 73, Ω_m leggermente diverso da 1c
     Messaggio: prior diversa → risultato diverso → questa è la tensione di Hubble
     ```
@@ -109,8 +109,8 @@ BAO is an orthogonal dataset wrt to SNe
     Omega_m    = 0.3322  +0.0182 / -0.0186
     ```
 
-    - Caso 1e — SNe, ΛCDM, M free, prior SH0ES
-    Parametri: H0, Ω_m, M
+    - case 1e — SNe, ΛCDM, M free, prior SH0ES
+    Parameters: H0, Ω_m, M
     ```
   H0         = 73.2458  +1.0085 / -0.9963
   Omega_m    = 0.3307  +0.0190 / -0.0169
@@ -118,11 +118,11 @@ BAO is an orthogonal dataset wrt to SNe
     ```
 
 
-Con M libera la posterior è allungata lungo la direzione H0-M — la catena deve fare passi grandi per esplorare quella banana. Con M marginalizzata quella dimensione è eliminata e la posterior è molto più compatta — gli stessi step sizes diventano relativamente piccoli rispetto alla nuova geometria. Per questo devi aumentarli.
+Con M libera la posterior è allungata lungo la direzione H0-M — la catena deve fare passi grandi per esplorare quella banana. Con M marginal quella dimensione è eliminata e la posterior è molto più compatta — gli stessi step sizes diventano relativamente piccoli rispetto alla nuova geometria. Per questo devi aumentarli.
 
-- Blocco 2 — Aggiungere BAO, rompere le degenerazioni
-    - Caso 2a — SNe + BAO, ΛCDM, M libera, no prior
-    Parametri: H0, Ω_m, M
+- Block 2 — Aggiungere BAO, rompere le degenerazioni
+    - case 2a — SNe + BAO, ΛCDM, M libera, no prior
+    Parameters: H0, Ω_m, M
     Risultato atteso: H0 ~ 68 dai dati, M ~ -0.16, Ω_m ~ 0.30
     Messaggio: i BAO ancorano H0 geometricamente senza prior — M ≠ 0 è la tensione di Hubble
     ```
@@ -130,18 +130,18 @@ Con M libera la posterior è allungata lungo la direzione H0-M — la catena dev
     Omega_m    = 0.3093  +0.0100 / -0.0113
     M          = -0.1512  +0.0185 / -0.0169
     ```
-    - Caso 2b — SNe + BAO, ΛCDM, M marginalizzata, no prior
-    Parametri: H0, Ω_m
+    - case 2b — SNe + BAO, ΛCDM, M marginal, no prior
+    Parameters: H0, Ω_m
     Risultato atteso: H0 ~ 68, Ω_m ~ 0.30, distribuzioni pulite
-    Messaggio: caso più robusto per ΛCDM — nessuna assunzione esterna
+    Messaggio: case più robusto per ΛCDM — nessuna assunzione esterna
     ```
     H0         = 68.3901  +0.7592 / -0.7499
     Omega_m    = 0.3114  +0.0125 / -0.0127
     ```
   
-- Blocco 3 — Energia oscura dinamica
-    - Caso 3a — SNe + BAO, w0CDM, M marginalizzata, no prior
-    Parametri: H0, Ω_m, w0
+- Block 3 — Energia oscura dinamica
+    - case 3a — SNe + BAO, w0CDM, M marginal, no prior
+    Parameters: H0, Ω_m, w0
     Risultato atteso: w0 ~ -0.9, compatibile con -1
     Messaggio: primo test su energia oscura, le SNe+BAO sono compatibili con ΛCDM
     ```
@@ -149,8 +149,8 @@ Con M libera la posterior è allungata lungo la direzione H0-M — la catena dev
     Omega_m    = 0.2972  +0.0143 / -0.0139
     w0         = -0.9237  +0.0468 / -0.0476
     ```
-    - Caso 3b — SNe + BAO, w0waCDM, M marginalizzata, no prior
-    Parametri: H0, Ω_m, w0, wa
+    - case 3b — SNe + BAO, w0waCDM, M marginal, no prior
+    Parameters: H0, Ω_m, w0, wa
     Risultato atteso: w0 ~ -0.89, wa ~ -0.33 con grandi incertezze
     Messaggio: wa mal vincolato senza CMB, ma compatibile con 0 — no evidenza forte di DE dinamica
     ```
@@ -161,7 +161,7 @@ Con M libera la posterior è allungata lungo la direzione H0-M — la catena dev
     ```
 
 - Bonus:
-    - SNe only, w0waCDM, M marginalizzata, prior Planck 
+    - SNe only, w0waCDM, M marginal, prior Planck 
     → mostra quanto sono larghe le posterior su w0 e wa senza BAO
     ```
     H0         = 72.9334  +1.0545 / -0.9754
@@ -170,19 +170,19 @@ Con M libera la posterior è allungata lungo la direzione H0-M — la catena dev
     wa         = -0.1347  +0.7599 / -1.4436
     ```
 
-    - SNe + BAO, w0waCDM, M marginalizzata, no prior 
+    - SNe + BAO, w0waCDM, M marginal, no prior 
     → stesso modello con BAO → le posterior si stringono visibilmente
 
     
-(Ha senso includerlo solo come caso dimostrativo per mostrare cosa succede senza BAO. Il messaggio sarebbe chiaro — w0 e wa sono completamente mal vincolati con sole SNe, le posterior sono larghissime e la banana w0-wa è enorme.
-Però attenzione — senza BAO e senza prior su H0, con 4 parametri liberi la catena faticherà molto a convergere. Aggiungi almeno il prior su H0, altrimenti rischi di non ottenere nulla di interpretabile.)
+(Ha senso includerlo solo come case dimostrativo per mostrare cosa succede senza BAO. Il messaggio sarebbe chiaro — w0 e wa sono completamente mal vincolati con sole SNe, le posterior sono larghissime e la banana w0-wa è enorme.
+Però attenzione — senza BAO e senza prior su H0, con 4 Parameters liberi la catena faticherà molto a convergere. Aggiungi almeno il prior su H0, altrimenti rischi di non ottenere nulla di interpretabile.)
 
 I plot da fare
-Plot 1 — Corner plot per ogni caso
-Mostrano le posterior marginali e le correlazioni tra parametri. I più importanti da confrontare sono 1c vs 1d (tensione di Hubble) e 2b vs 3b (effetto di aggiungere w0, wa).
+Plot 1 — Corner plot per ogni case
+Mostrano le posterior marginali e le correlazioni tra Parameters. I più importanti da confrontare sono 1c vs 1d (tensione di Hubble) e 2b vs 3b (effetto di aggiungere w0, wa).
 Plot 2 — Confronto posterior H0
 Un singolo plot con tutte le distribuzioni marginali di H0 sovrapposte — casi 1c, 1d, 2a, 2b. Si vede visivamente come il prior o i BAO spostano e stringono H0.
 Plot 3 — Diagramma di Hubble
-Best fit + banda di incertezza sovrapposta ai dati Pantheon. Uno per il caso ΛCDM e uno per w0waCDM — si vede come le curve differiscono a alto redshift.
+Best fit + banda di incertezza sovrapposta ai dati Pantheon. Uno per il case ΛCDM e uno per w0waCDM — si vede come le curve differiscono a alto redshift.
 Plot 4 — Confronto contorni w0-wa
 Se hai il tempo, un plot che mostra i contorni 68% e 95% nel piano w0-wa con una stella su (-1, 0) per ΛCDM. È la figura classica dei paper di energia oscura.
