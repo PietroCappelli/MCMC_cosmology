@@ -186,3 +186,37 @@ Plot 3 — Diagramma di Hubble
 Best fit + banda di incertezza sovrapposta ai dati Pantheon. Uno per il case ΛCDM e uno per w0waCDM — si vede come le curve differiscono a alto redshift.
 Plot 4 — Confronto contorni w0-wa
 Se hai il tempo, un plot che mostra i contorni 68% e 95% nel piano w0-wa con una stella su (-1, 0) per ΛCDM. È la figura classica dei paper di energia oscura.
+
+## mcmc_experimentation.py quick guide
+
+`mcmc_experimentation.py` is the unified runner for the final MH experiments:
+- supports `lcdm_mmarg`, `w0wa_mmarg`, and `core4`;
+- supports SH0ES handling as `prior`, `forward`, or `both`;
+- supports BAO on/off toggles with the same sampler workflow;
+- writes plots to `experimentation_plots` (or a custom `--plot-dir`).
+
+### Main use cases
+1. Reproduce baseline BAO-constrained runs (no external H0 prior):
+```bash
+python3 mcmc_experimentation.py --case lcdm_mmarg --shoes-mode prior --h0-prior none --use-bao
+python3 mcmc_experimentation.py --case w0wa_mmarg --shoes-mode prior --h0-prior none --use-bao
+```
+
+2. Compare SH0ES integration strategies with matched settings:
+```bash
+python3 mcmc_experimentation.py --case lcdm_mmarg --shoes-mode prior   --h0-prior shoes --use-bao --n-chains 1 --no-use-pilot
+python3 mcmc_experimentation.py --case lcdm_mmarg --shoes-mode forward --h0-prior none  --use-bao --n-chains 1 --no-use-pilot
+```
+
+3. Run the full 4-case matrix in one command:
+```bash
+python3 mcmc_experimentation.py --case core4 --shoes-mode both --n-chains 4 --use-pilot
+```
+
+### Practical notes
+- `--no-use-pilot` disables pilot tuning; `--use-pilot` tunes proposals before production.
+- `--parallel-backend process` usually gives better CPU scaling for multi-chain runs.
+- Use `-h` for full argument docs:
+```bash
+python3 mcmc_experimentation.py -h
+```

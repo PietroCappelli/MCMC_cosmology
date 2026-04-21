@@ -20,6 +20,7 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import hashlib
 import importlib.util
@@ -73,59 +74,19 @@ BAO_DATA = [
 # ----------------------------
 # Case definitions
 # ----------------------------
-CASE_DEFS: Dict[str, Dict[str, Any]] = {
-    "lcdm_mmarg": {
-        "params": ["H0", "Omega_m"],
-        "fixed": {"w0": -1.0, "wa": 0.0},
-        "theta0": [70.0, 0.30],
-        "step_scales": [0.4, 0.008],
-        "prior_bounds": {"H0": (50, 90), "Omega_m": (0.1, 0.6)},
-        "marginalize_M": True,
-        "label": "LCDM M-marg",
-    },
-    "w0wa_mmarg": {
-        "params": ["H0", "Omega_m", "w0", "wa"],
-        "fixed": {},
-        "theta0": [70.0, 0.30, -1.0, 0.0],
-        "step_scales": [0.4, 0.008, 0.05, 0.1],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3),
-        },
-        "marginalize_M": True,
-        "label": "w0waCDM M-marg",
-    },
-    # Supporting cases for explicit degeneracy analysis
-    "lcdm_mfree": {
-        "params": ["H0", "Omega_m", "M"],
-        "fixed": {"w0": -1.0, "wa": 0.0},
-        "theta0": [70.0, 0.30, 0.0],
-        "step_scales": [0.4, 0.008, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "M": (-1.0, 1.0),
-        },
-        "marginalize_M": False,
-        "label": "LCDM M-free",
-    },
-    "w0wa_mfree": {
-        "params": ["H0", "Omega_m", "w0", "wa", "M"],
-        "fixed": {},
-        "theta0": [70.0, 0.30, -1.0, 0.0, 0.0],
-        "step_scales": [0.4, 0.008, 0.05, 0.1, 0.008],
-        "prior_bounds": {
-            "H0": (50, 90),
-            "Omega_m": (0.1, 0.6),
-            "w0": (-2, 0),
-            "wa": (-3, 3),
-            "M": (-1.0, 1.0),
-        },
-        "marginalize_M": False,
-        "label": "w0waCDM M-free",
-    },
+CASE_LABELS: Dict[str, str] = {
+    "lcdm_mmarg": "LCDM M-marg",
+    "w0wa_mmarg": "w0waCDM M-marg",
+    "lcdm_mfree": "LCDM M-free",
+    "w0wa_mfree": "w0waCDM M-free",
+}
+
+# Internal case id -> reference model key from mcmc_pantheon+BAO_Prior_Mmarginal.py
+CASE_MODEL_MAP: Dict[str, str] = {
+    "lcdm_mmarg": "LCDM_Mmarg_NoPrior",
+    "w0wa_mmarg": "LCDM_Mmarg_NoPrior_w0wa",
+    "lcdm_mfree": "LCDM_Mfree_NoPrior",
+    "w0wa_mfree": "LCDM_Mfree_NoPrior_w0wa",
 }
 
 
@@ -159,6 +120,79 @@ def progress_bar(frac: float, width: int = 26) -> str:
 def case_plot_path(plot_dir: Path, shoes_mode: str, case_name: str, use_bao: bool, kind: str) -> Path:
     bao_tag = "on" if use_bao else "off"
     return plot_dir / f"{shoes_mode}__{case_name}__bao_{bao_tag}__{kind}.png"
+
+
+def load_reference_models(models_file: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    Load MODELS dictionary directly from the non-emcee baseline file
+    (mcmc_pantheon+BAO_Prior_Mmarginal.py) via AST, avoiding import side effects.
+    """
+    if not models_file.exists():
+        raise FileNotFoundError(f"Reference MODELS file not found: {models_file}")
+
+    src = models_file.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(models_file))
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id == "MODELS":
+                    value = ast.literal_eval(node.value)
+                    if not isinstance(value, dict):
+                        raise TypeError("Parsed MODELS object is not a dictionary")
+                    return value
+
+    raise KeyError(f"MODELS dictionary not found in {models_file}")
+
+
+def resolve_reference_model_key(
+    case_name: str,
+    h0_prior: str,
+    reference_models: Dict[str, Dict[str, Any]],
+) -> str:
+    # Prefer explicit prior-configured models from the reference file when available.
+    if case_name == "lcdm_mmarg" and h0_prior == "shoes" and "LCDM_priorSH0ES" in reference_models:
+        return "LCDM_priorSH0ES"
+    if case_name == "w0wa_mmarg" and h0_prior == "shoes" and "w0waCDM_Prior" in reference_models:
+        return "w0waCDM_Prior"
+
+    return CASE_MODEL_MAP[case_name]
+
+
+def build_case_cfg(
+    case_name: str,
+    reference_models: Dict[str, Dict[str, Any]],
+    h0_prior: str,
+) -> Dict[str, Any]:
+    if case_name not in CASE_MODEL_MAP:
+        raise KeyError(f"Unsupported case name: {case_name}")
+
+    model_key = resolve_reference_model_key(case_name, h0_prior, reference_models)
+    if model_key not in reference_models:
+        raise KeyError(
+            f"Reference model '{model_key}' required by case '{case_name}' "
+            "was not found in baseline MODELS."
+        )
+
+    m = reference_models[model_key]
+    params = list(m["params"])
+    fixed = dict(m.get("fixed", {}))
+    theta0 = list(m["theta0"])
+    step_scales = list(m["step_sizes"])
+    prior_bounds = dict(m["prior_bounds"])
+    marginalize_M = bool(m.get("marginalize_M", ("M" not in params)))
+
+    return {
+        "params": params,
+        "fixed": fixed,
+        "theta0": theta0,
+        "step_scales": step_scales,
+        "prior_bounds": prior_bounds,
+        "marginalize_M": marginalize_M,
+        "label": CASE_LABELS[case_name],
+        "source_model": model_key,
+        "n_steps_default": int(m.get("n_steps", 4000)),
+    }
 
 
 def load_pantheon_full(data_path: Path, cov_path: Path) -> Tuple[pd.DataFrame, np.ndarray]:
@@ -1060,16 +1094,22 @@ def run_case(
     case_name: str,
     shoes_mode: str,
     use_bao: bool,
+    case_cfg: Dict[str, Any],
     dataset: DatasetBundle,
     args: argparse.Namespace,
     plot_dir: Path,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    case_cfg = copy.deepcopy(CASE_DEFS[case_name])
     dim = len(case_cfg["params"])
+    prod_steps = int(args.prod_steps) if args.prod_steps is not None else int(case_cfg["n_steps_default"])
 
     print(
-        f"\n=== RUN case={case_name} ({CASE_DEFS[case_name]['label']}) "
+        f"\n=== RUN case={case_name} ({case_cfg['label']}) "
         f"| shoes={shoes_mode} | bao={int(use_bao)} | chains={args.n_chains} ===",
+        flush=True,
+    )
+    print(
+        f"[config] source_model={case_cfg.get('source_model','unknown')} "
+        f"theta0={case_cfg['theta0']} step_scales={case_cfg['step_scales']} prod_steps={prod_steps}",
         flush=True,
     )
 
@@ -1154,7 +1194,7 @@ def run_case(
         n_chains=args.n_chains,
         theta_starts=prod_starts,
         proposal_cov=tuned_cov,
-        n_steps=args.prod_steps,
+        n_steps=prod_steps,
         base_seed=args.seed,
         case_name=case_name,
         shoes_mode=shoes_mode,
@@ -1168,7 +1208,7 @@ def run_case(
         progress_updates=args.progress_updates,
     )
 
-    burn = int(args.burn_frac * args.prod_steps)
+    burn = int(args.burn_frac * prod_steps)
     post = prod_chains[:, burn:, :].reshape(-1, dim)
 
     # Diagnostics
@@ -1197,7 +1237,7 @@ def run_case(
     print(f"[summary] H0={h0_median:.4f}, Omega_m={om_median:.4f}", flush=True)
 
     # Plots
-    run_title = f"{CASE_DEFS[case_name]['label']} | shoes={shoes_mode} | bao={use_bao}"
+    run_title = f"{case_cfg['label']} | shoes={shoes_mode} | bao={use_bao}"
     plot_trace_overlay(
         prod_chains,
         prod_logps,
@@ -1212,7 +1252,8 @@ def run_case(
 
     result = {
         "case": case_name,
-        "case_label": CASE_DEFS[case_name]["label"],
+        "case_label": case_cfg["label"],
+        "source_model": case_cfg.get("source_model"),
         "shoes_mode": shoes_mode,
         "use_bao": bool(use_bao),
         "h0_prior": args.h0_prior,
@@ -1220,7 +1261,7 @@ def run_case(
         "parallel_backend": args.parallel_backend,
         "pilot_steps": int(args.pilot_steps),
         "use_pilot": bool(args.use_pilot),
-        "prod_steps": int(args.prod_steps),
+        "prod_steps": int(prod_steps),
         "burn_steps": int(burn),
         "acceptance": {
             "pilot_mean": float(np.mean(pilot_accs)) if len(pilot_accs) > 0 else None,
@@ -1339,6 +1380,7 @@ def build_run_list(args: argparse.Namespace) -> List[Tuple[str, bool]]:
 def run_degeneracy_block(
     shoes_mode: str,
     dataset: DatasetBundle,
+    reference_models: Dict[str, Dict[str, Any]],
     args: argparse.Namespace,
     plot_dir: Path,
     result_index: Dict[Tuple[str, str, bool], Dict[str, Any]],
@@ -1346,9 +1388,10 @@ def run_degeneracy_block(
 ) -> Dict[str, Any]:
     # Run M-free SN-only LCDM to quantify H0-M degeneracy
     deg_case = "lcdm_mfree"
+    deg_cfg = build_case_cfg(deg_case, reference_models, args.h0_prior)
     use_bao = False
 
-    deg_result, deg_payload = run_case(deg_case, shoes_mode, use_bao, dataset, args, plot_dir)
+    deg_result, deg_payload = run_case(deg_case, shoes_mode, use_bao, deg_cfg, dataset, args, plot_dir)
 
     key_mmarg = (shoes_mode, "lcdm_mmarg", False)
     if key_mmarg in result_index:
@@ -1356,7 +1399,8 @@ def run_degeneracy_block(
         mmarg_payload = payload_index[key_mmarg]
     else:
         # If not already run, run supporting mmarg no-BAO
-        mmarg_result, mmarg_payload = run_case("lcdm_mmarg", shoes_mode, False, dataset, args, plot_dir)
+        mmarg_cfg = build_case_cfg("lcdm_mmarg", reference_models, args.h0_prior)
+        mmarg_result, mmarg_payload = run_case("lcdm_mmarg", shoes_mode, False, mmarg_cfg, dataset, args, plot_dir)
         result_index[key_mmarg] = mmarg_result
         payload_index[key_mmarg] = mmarg_payload
 
@@ -1488,8 +1532,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prod-steps",
         type=int,
-        default=4000,
-        help="Production MH steps per chain (default: 4000).",
+        default=None,
+        help=(
+            "Production MH steps per chain.\n"
+            "If omitted, uses `n_steps` from the mapped reference MODELS entry."
+        ),
     )
     parser.add_argument(
         "--progress-updates",
@@ -1581,6 +1628,8 @@ def main() -> None:
     args = parse_args()
 
     repo_dir = Path.cwd()
+    models_file = repo_dir / "mcmc_pantheon+BAO_Prior_Mmarginal.py"
+    reference_models = load_reference_models(models_file)
     plot_dir = Path(args.plot_dir).resolve()
     plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1617,6 +1666,7 @@ def main() -> None:
         dataset = datasets[mode]
 
         for case_name, use_bao in run_list:
+            case_cfg = build_case_cfg(case_name, reference_models, args.h0_prior)
             completed_primary_runs += 1
             print(
                 f"\n[run {completed_primary_runs}/{total_primary_runs}] "
@@ -1624,7 +1674,7 @@ def main() -> None:
                 flush=True,
             )
             t0 = time.perf_counter()
-            result, payload = run_case(case_name, mode, use_bao, dataset, args, plot_dir)
+            result, payload = run_case(case_name, mode, use_bao, case_cfg, dataset, args, plot_dir)
             dt = time.perf_counter() - t0
             print(
                 f"[run {completed_primary_runs}/{total_primary_runs}] done in {dt:0.1f}s",
@@ -1640,6 +1690,7 @@ def main() -> None:
             run_degeneracy_block(
                 shoes_mode=mode,
                 dataset=dataset,
+                reference_models=reference_models,
                 args=args,
                 plot_dir=plot_dir,
                 result_index=result_index,
